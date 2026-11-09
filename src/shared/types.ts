@@ -99,4 +99,37 @@ export interface AppInfo {
 }
 
 /** Result envelope so errors cross IPC with a usable code and message. */
-export type Result<T> = { ok: true; data: T } | { ok: false; error: string; code?: string }
+export type Result<T> = { ok: true; data: T } | { ok: false; error: string; code?: string; status?: number }
+
+export type PimKind = 'role' | 'group'
+
+export interface PimItem {
+  /** Role definition id (directory role) or group id (PIM for groups). */
+  targetId: string
+  kind: PimKind
+  name: string
+  state: 'eligible' | 'active' | 'permanent' | 'pending'
+  start?: string | null
+  end?: string | null
+  requestId?: string
+}
+
+export interface PimData {
+  /** "directory": roles in the tenant itself. "groups": PIM for groups in the partner tenant (GDAP). */
+  mode: 'directory' | 'groups'
+  homeTenantId: string
+  eligible: PimItem[]
+  active: PimItem[]
+  pending: PimItem[]
+  /** True when the group list was narrowed to the GDAP relationship with this customer. */
+  filtered: boolean
+}
+
+export interface PimRequest {
+  kind: PimKind
+  targetId: string
+  name: string
+  justification: string
+  hours: number
+  ticket?: string
+}

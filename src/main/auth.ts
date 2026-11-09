@@ -16,7 +16,14 @@ export const SCOPES = [
   'AuditLog.Read.All',
   'User-PasswordProfile.ReadWrite.All',
   'UserAuthenticationMethod.ReadWrite.All',
-  'User.RevokeSessions.All'
+  'User.RevokeSessions.All',
+  // PIM: directory roles in the customer tenant, PIM for groups and GDAP relationships in the partner tenant.
+  'RoleManagement.Read.Directory',
+  'RoleEligibilitySchedule.Read.Directory',
+  'RoleAssignmentSchedule.ReadWrite.Directory',
+  'PrivilegedEligibilitySchedule.Read.AzureADGroup',
+  'PrivilegedAssignmentSchedule.ReadWrite.AzureADGroup',
+  'DelegatedAdminRelationship.Read.All'
 ]
 
 const cachePlugin: ICachePlugin = {
@@ -72,23 +79,65 @@ export class NeedsSignIn extends Error {
   code = 'NEEDS_SIGNIN'
 }
 
-/** Graph access token for a registered tenant, silently from cache or refresh token. */
-export async function tokenFor(tenantId: string): Promise<string> {
-  const t = tenants.get(tenantId)
-  if (!t) throw new Error(`Unknown tenant ${tenantId}`)
-  const account = await accountFor(t.homeAccountId)
-  if (!account) throw new NeedsSignIn('No cached account for this tenant')
+export class NeedsHomeSignIn extends Error {
+  code = 'NEEDS_HOME_SIGNIN'
+}
+
+async function silent(homeAccountId: string, authorityTenant: string, Err: typeof NeedsSignIn | typeof NeedsHomeSignIn) {
+  const account = await accountFor(homeAccountId)
+  if (!account) throw new Err('No cached account for this tenant')
   try {
     const r = await client().acquireTokenSilent({
       account,
       scopes: SCOPES,
-      authority: `https://login.microsoftonline.com/${tenantId}`
+      authority: `https://login.microsoftonline.com/${authorityTenant}`
     })
     return r.accessToken
   } catch (e) {
-    if (e instanceof InteractionRequiredAuthError) throw new NeedsSignIn(e.message)
+    if (e instanceof InteractionRequiredAuthError) throw new Err(e.message)
     throw e
   }
+}
+
+/** Graph access token for a registered tenant, silently from cache or refresh token. */
+export async function tokenFor(tenantId: string): Promise<string> {
+  const t = tenants.get(tenantId)
+  if (!t) throw new Error(`Unknown tenant ${tenantId}`)
+  return silent(t.homeAccountId, tenantId, NeedsSignIn)
+}
+
+/** The tenant the signed-in account belongs to; for GDAP that is the partner (RHIS) tenant. */
+export function homeTenantOf(tenantId: string): string {
+  const t = tenants.get(tenantId)
+  if (!t) throw new Error(`Unknown tenant ${tenantId}`)
+  return t.homeAccountId.split('.')[1] || tenantId
+}
+
+/** Token for the partner tenant of a GDAP tenant, used for PIM for groups and GDAP relationships. */
+export async function tokenForHome(tenantId: string): Promise<string> {
+  const t = tenants.get(tenantId)!
+  return silent(t.homeAccountId, homeTenantOf(tenantId), NeedsHomeSignIn)
+}
+
+/**
+ * Interactive step-up for PIM: a claims challenge (Conditional Access authentication context) or a
+ * fresh MFA sign-in. Returns the new token directly, because a silent call could still serve the old one.
+ */
+export async function stepUp(authorityTenant: string, loginHint: string, claims?: string): Promise<string> {
+  const r = await client().acquireTokenInteractive({
+    scopes: SCOPES,
+    authority: `https://login.microsoftonline.com/${authorityTenant}`,
+    loginHint,
+    claims,
+    prompt: claims ? undefined : 'login',
+    extraQueryParameters: claims ? undefined : { amr_values: 'mfa' },
+    openBrowser: async (url) => {
+      await shell.openExternal(url)
+    },
+    successTemplate: page('Verified / Geverifieerd', 'You can close this tab and return to M365 Admin Toolbox.'),
+    errorTemplate: page('Verification failed / Verificatie mislukt', 'Return to M365 Admin Toolbox for details.')
+  })
+  return r.accessToken
 }
 
 /** Removes the cached account unless another registered tenant still uses it (common with GDAP). */

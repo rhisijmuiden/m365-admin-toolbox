@@ -21,6 +21,17 @@ const api = {
   changeLicenses: inv('licenses:change'),
   listGroups: inv('groups:list'),
   createGroup: inv('groups:create'),
+  reauthHome: inv('tenants:reauthHome'),
+  pimLoad: inv('pim:load'),
+  pimActivate: inv('pim:activate'),
+  pimExtend: inv('pim:extend'),
+  pimDeactivate: inv('pim:deactivate'),
+  pimCancel: inv('pim:cancel'),
+  onNav(cb: (n: { tenantId: string; view: string }) => void) {
+    const fn = (_e: unknown, n: { tenantId: string; view: string }) => cb(n)
+    ipcRenderer.on('nav', fn)
+    return () => ipcRenderer.removeListener('nav', fn)
+  },
   updateState: inv('update:state'),
   checkUpdate: inv('update:check'),
   downloadUpdate: inv('update:download'),

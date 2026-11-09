@@ -8,12 +8,14 @@ import { InfoModal } from './components/Info'
 import { UsersView } from './views/Users'
 import { LicensesView } from './views/Licenses'
 import { GroupsView } from './views/Groups'
+import { PimView } from './views/Pim'
 import logoDark from './assets/rhis-logo.svg'
 import logoLight from './assets/rhis-logo-wit.svg'
 
-type View = 'users' | 'licenses' | 'groups' | 'mailboxes' | 'shared' | 'aliases' | 'teamsList' | 'policies' | 'apps' | 'ca' | 'roles'
+type View = 'pim' | 'users' | 'licenses' | 'groups' | 'mailboxes' | 'shared' | 'aliases' | 'teamsList' | 'policies' | 'apps' | 'ca' | 'roles'
 
-const NAV: { id: 'm365' | 'exchange' | 'teams' | 'entra'; bg: string; items: [View, number][] }[] = [
+const NAV: { id: 'access' | 'm365' | 'exchange' | 'teams' | 'entra'; bg: string; items: [View, number][] }[] = [
+  { id: 'access', bg: 'linear-gradient(135deg,#ff8a6b,#e0503c)', items: [['pim', 0]] },
   { id: 'm365', bg: 'linear-gradient(135deg,#ea5a2b,#c2381f)', items: [['users', 0], ['licenses', 0], ['groups', 0]] },
   { id: 'exchange', bg: 'linear-gradient(135deg,#2a8be0,#0a5aa6)', items: [['mailboxes', 2], ['shared', 2], ['aliases', 2]] },
   { id: 'teams', bg: 'linear-gradient(135deg,#7377dd,#4b4fb3)', items: [['teamsList', 3], ['policies', 3]] },
@@ -49,7 +51,12 @@ export function App() {
       setCurId(ts.find((x) => x.tenantId === s.lastTenantId)?.tenantId || ts[0]?.tenantId)
     })
     const i = setInterval(() => tick((x) => x + 1), 30000)
-    return () => clearInterval(i)
+    // A click on a "role expires soon" notification opens PIM for that tenant.
+    const off = window.api.onNav((n) => {
+      setCurId(n.tenantId)
+      setView(n.view as View)
+    })
+    return () => (clearInterval(i), off())
   }, [])
 
   useEffect(() => {
@@ -97,7 +104,8 @@ export function App() {
 
   if (!settings) return null
 
-  const ctx: Ctx = { t, lang, settings, tenant, tenants, toast, setSettings, markSynced, reauth }
+  const goPim = () => setView('pim')
+  const ctx: Ctx = { t, lang, settings, tenant, tenants, toast, setSettings, markSynced, reauth, goPim }
   const group = NAV.find((g) => g.items.some(([k]) => k === view))!
   const phase = group.items.find(([k]) => k === view)![1]
   const ago = syncedAt ? new Intl.RelativeTimeFormat(lang, { numeric: 'auto' }).format(-Math.floor((Date.now() - syncedAt.getTime()) / 60000), 'minute') : null
@@ -168,7 +176,7 @@ export function App() {
           {!tenant ? (
             <div className="content" style={{ display: 'grid', placeItems: 'center' }}>
               <div className="empty" style={{ maxWidth: 560 }}>
-                <span className="ico" style={{ background: NAV[0].bg, width: 44, height: 44, margin: '0 auto', borderRadius: 11 }}>
+                <span className="ico" style={{ background: NAV[1].bg, width: 44, height: 44, margin: '0 auto', borderRadius: 11 }}>
                   {Icon.m365}
                 </span>
                 <h3>{t('welcomeT')}</h3>
@@ -181,6 +189,8 @@ export function App() {
             </div>
           ) : phase > 0 ? (
             <Soon title={t(view as Key) as string} crumb={`${tenant.name} · ${t(group.id)}`} phase={phase} bg={group.bg} icon={Icon[group.id]} />
+          ) : view === 'pim' ? (
+            <PimView key={tenant.tenantId + epoch} />
           ) : view === 'users' ? (
             <UsersView key={tenant.tenantId + epoch} />
           ) : view === 'licenses' ? (

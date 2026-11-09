@@ -4,6 +4,9 @@ import type {
   LicenseChange,
   NewGroup,
   NewUser,
+  PimData,
+  PimKind,
+  PimRequest,
   Result,
   Settings,
   Sku,
@@ -33,6 +36,13 @@ export interface Api {
   changeLicenses(tenantId: string, changes: LicenseChange[]): R<{ failed: { userId: string; error: string }[] }>
   listGroups(tenantId: string): R<Group[]>
   createGroup(tenantId: string, g: NewGroup): R<Group>
+  reauthHome(tenantId: string): R<void>
+  pimLoad(tenantId: string): R<PimData>
+  pimActivate(tenantId: string, r: PimRequest): R<{ status: string }>
+  pimExtend(tenantId: string, r: PimRequest): R<{ status: string }>
+  pimDeactivate(tenantId: string, kind: PimKind, targetId: string): R<void>
+  pimCancel(tenantId: string, kind: PimKind, requestId: string): R<void>
+  onNav(cb: (n: { tenantId: string; view: string }) => void): () => void
   updateState(): R<UpdateState>
   checkUpdate(): R<UpdateState>
   downloadUpdate(): R<void>

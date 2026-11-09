@@ -63,6 +63,12 @@ export const Icon = {
       <path d="M3 19c0-3.3 2.7-5 6-5s6 1.7 6 5M15 14.5c3 0 6 1.3 6 4.5" />
     </svg>
   ),
+  access: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="8" cy="15" r="4" />
+      <path d="M11 12l9-9M17 6l3 3M14 9l2 2" />
+    </svg>
+  ),
   entra: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M12 3l8 3v6c0 4.5-3.4 8.2-8 9-4.6-.8-8-4.5-8-9V6z" />
@@ -106,7 +112,18 @@ export function Modal({ title, sub, onClose, children, footer, wide }: {
 
 /** Shows a loading line, an expired-sign-in banner with a re-auth button, or a plain error. */
 export function LoadState({ loading, error }: { loading: boolean; error: ApiError | null }) {
-  const { t, reauth } = useApp()
+  const { t, reauth, goPim } = useApp()
+  if (error && (error.status === 403 || error.code === 'Authorization_RequestDenied'))
+    return (
+      <div className="banner">
+        <span>
+          <b>{t('noAccessT')}</b> {t('noAccessD')}
+        </span>
+        <button className="btn sm" onClick={goPim}>
+          {t('activateRole')}
+        </button>
+      </div>
+    )
   if (error?.code === 'NEEDS_SIGNIN')
     return (
       <div className="banner">

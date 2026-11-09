@@ -5,6 +5,7 @@ Multi-tenant Microsoft 365 admin desktop app for Windows, by RHIS.
 ## What it does (phase 1)
 
 - Add tenants with a Microsoft sign-in, either with your own partner account through **GDAP** or with the tenant's own admin account. Switch between tenants from the dropdown top-left.
+- **Role activation (PIM)**: see eligible, active and permanent admin roles, activate with a reason, duration and ticket number (with MFA or authentication-context step-up), extend, deactivate, cancel pending requests, and get a notification 10 minutes before a role expires. For GDAP tenants this is PIM for groups in the RHIS partner tenant, narrowed to the groups of that customer's GDAP relationship. A "no permission" error offers role activation directly.
 - **Users**: list, create with a generated password, block or allow sign-in, reset password, create a Temporary Access Pass, revoke sessions.
 - **Licenses**: assign and remove licenses for one or more users, see purchased versus assigned per subscription, and spot shortages in one tenant or across all tenants.
 - **Groups**: list, create Microsoft 365 and security groups.

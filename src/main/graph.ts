@@ -14,7 +14,7 @@ export class GraphError extends Error {
   }
 }
 
-async function call<T>(token: string, path: string, init: RequestInit = {}): Promise<T> {
+export async function call<T>(token: string, path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(path.startsWith('http') ? path : BASE + path, {
     ...init,
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init.headers || {}) }
@@ -28,7 +28,7 @@ async function call<T>(token: string, path: string, init: RequestInit = {}): Pro
   return body as T
 }
 
-async function all<T>(token: string, path: string, headers?: Record<string, string>): Promise<T[]> {
+export async function all<T>(token: string, path: string, headers?: Record<string, string>): Promise<T[]> {
   const out: T[] = []
   let next: string | undefined = path
   while (next) {

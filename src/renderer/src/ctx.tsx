@@ -14,6 +14,8 @@ export interface Ctx {
   markSynced(): void
   /** Re-runs the interactive sign-in for the current tenant. */
   reauth(): Promise<void>
+  /** Opens the PIM screen of the current tenant, e.g. after a 403. */
+  goPim(): void
 }
 
 export const AppCtx = createContext<Ctx>(null as unknown as Ctx)
@@ -22,7 +24,8 @@ export const useApp = () => useContext(AppCtx)
 export class ApiError extends Error {
   constructor(
     message: string,
-    public code?: string
+    public code?: string,
+    public status?: number
   ) {
     super(message)
   }
@@ -30,7 +33,7 @@ export class ApiError extends Error {
 
 export async function unwrap<T>(p: Promise<Result<T>>): Promise<T> {
   const r = await p
-  if (!r.ok) throw new ApiError(r.error, r.code)
+  if (!r.ok) throw new ApiError(r.error, r.code, r.status)
   return r.data
 }
 

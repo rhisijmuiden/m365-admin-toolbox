@@ -1,8 +1,10 @@
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from 'electron'
 import { join } from 'path'
-import type { AppInfo, LicenseChange, NewGroup, NewUser, Result, Settings, Tenant, TenantMode } from '@shared/types'
-import { forget, signInInteractive } from './auth'
+import type { AppInfo, LicenseChange, NewGroup, NewUser, PimKind, PimRequest, Result, Settings, Tenant, TenantMode } from '@shared/types'
+import { forget, homeTenantOf, signInInteractive } from './auth'
 import * as graph from './graph'
+import * as pim from './pim'
+import { initPimWatch } from './pimWatch'
 import { settings, tenants } from './store'
 import { applyChannel, checkForUpdates, downloadUpdate, initUpdater, installUpdate, updateState } from './updater'
 
@@ -41,6 +43,7 @@ function createWindow() {
   if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) win.loadURL(process.env.ELECTRON_RENDERER_URL)
   else win.loadFile(join(__dirname, '../renderer/index.html'))
   initUpdater(win, s.channel)
+  initPimWatch(win)
 }
 
 /** Wraps a handler so errors reach the renderer as a Result instead of a rejected invoke. */
@@ -49,8 +52,8 @@ function handle<A extends unknown[], T>(name: string, fn: (...args: A) => Promis
     try {
       return { ok: true, data: await fn(...(args as A)) }
     } catch (e) {
-      const err = e as Error & { code?: string }
-      return { ok: false, error: err.message || String(e), code: err.code }
+      const err = e as Error & { code?: string; status?: number }
+      return { ok: false, error: err.message || String(e), code: err.code, status: err.status }
     }
   })
 }
@@ -88,6 +91,13 @@ async function reauth(tenantId: string): Promise<Tenant> {
   const next = { ...t, homeAccountId: r.account.homeAccountId, username: r.account.username }
   tenants.upsert(next)
   return next
+}
+
+/** For GDAP tenants: sign in to the partner tenant, which PIM for groups needs (consent there too). */
+async function reauthHome(tenantId: string) {
+  const t = tenants.get(tenantId)
+  if (!t) throw new Error('Unknown tenant')
+  await signInInteractive(homeTenantOf(tenantId), t.username)
 }
 
 function registerIpc() {
@@ -128,6 +138,12 @@ function registerIpc() {
   handle('licenses:change', (id: string, changes: LicenseChange[]) => graph.changeLicenses(id, changes))
   handle('groups:list', (id: string) => graph.listGroups(id))
   handle('groups:create', (id: string, g: NewGroup) => graph.createGroup(id, g))
+  handle('tenants:reauthHome', (id: string) => reauthHome(id))
+  handle('pim:load', (id: string) => pim.load(id))
+  handle('pim:activate', (id: string, r: PimRequest) => pim.activate(id, r))
+  handle('pim:extend', (id: string, r: PimRequest) => pim.extend(id, r))
+  handle('pim:deactivate', (id: string, kind: PimKind, targetId: string) => pim.deactivate(id, kind, targetId))
+  handle('pim:cancel', (id: string, kind: PimKind, requestId: string) => pim.cancel(id, kind, requestId))
   handle('update:state', () => updateState())
   handle('update:check', () => checkForUpdates())
   handle('update:download', () => downloadUpdate())
