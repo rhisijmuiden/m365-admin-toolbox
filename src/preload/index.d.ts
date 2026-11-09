@@ -78,7 +78,31 @@ import type {
   ResourceAccess,
   RoleAssign,
   RoleMember,
-  RolesData
+  RolesData,
+  AllowBlockItem,
+  AllowBlockList,
+  AnalyzedEmail,
+  AuditFilter,
+  AuditRecord,
+  DefenderAction,
+  NewAllowBlock,
+  PurgeType,
+  QuarantineFilter,
+  QuarantineMsg,
+  QuarantinePreview,
+  ReportedMsg,
+  RestrictedSender,
+  RetractJob,
+  RetractSpec,
+  RiskDetection,
+  RiskyUser,
+  SecPolicies,
+  SecPolicyKind,
+  SecureMailboxResult,
+  SignIn,
+  TraceEvent,
+  TraceFilter,
+  TraceRow
 } from '../shared/types'
 
 type R<T> = Promise<Result<T>>
@@ -111,6 +135,7 @@ export interface Api {
   exo: ExoApi
   teams: TeamsApi
   entra: EntraApi
+  sec: SecApi
   updateState(): R<UpdateState>
   checkUpdate(): R<UpdateState>
   downloadUpdate(): R<void>
@@ -257,6 +282,42 @@ export interface EntraApi {
   guests(tenantId: string): R<EntraGuest[]>
   invite(tenantId: string, i: Invite): R<{ userId: string; redeemUrl: string }>
   deleteGuests(tenantId: string, ids: string[]): R<{ id: string; error: string }[]>
+}
+
+type Failed = R<{ failed: { id: string; error: string }[] }>
+
+export interface SecApi {
+  consent(tenantId: string, set: 'risk' | 'submissions' | 'defender'): R<void>
+  quarantine(tenantId: string, f: QuarantineFilter): R<QuarantineMsg[]>
+  quarantinePreview(tenantId: string, id: string): R<QuarantinePreview>
+  quarantineRelease(tenantId: string, ids: string[], allowSender: boolean, reportFalsePositive: boolean): Failed
+  quarantineDelete(tenantId: string, ids: string[]): Failed
+  allowBlock(tenantId: string): R<AllowBlockItem[]>
+  newAllowBlock(tenantId: string, n: NewAllowBlock): R<AllowBlockItem[]>
+  removeAllowBlock(tenantId: string, listType: AllowBlockList, ids: string[]): R<AllowBlockItem[]>
+  policies(tenantId: string): R<SecPolicies>
+  setPolicy(tenantId: string, kind: SecPolicyKind, name: string, params: Record<string, unknown>): R<SecPolicies>
+  setPolicyRule(tenantId: string, kind: SecPolicyKind, rule: string, enabled: boolean): R<SecPolicies>
+  restricted(tenantId: string): R<RestrictedSender[]>
+  releaseSender(tenantId: string, s: RestrictedSender): R<RestrictedSender[]>
+  trace(tenantId: string, f: TraceFilter): R<TraceRow[]>
+  traceDetail(tenantId: string, traceId: string, recipient: string): R<TraceEvent[]>
+  auditStatus(tenantId: string): R<{ enabled: boolean }>
+  enableAudit(tenantId: string): R<{ enabled: boolean }>
+  audit(tenantId: string, f: AuditFilter): R<AuditRecord[]>
+  secureMailbox(tenantId: string, mailbox: string, rules: boolean, forwarding: boolean): R<SecureMailboxResult>
+  signIns(tenantId: string, userId: string): R<SignIn[]>
+  riskyUsers(tenantId: string): R<RiskyUser[]>
+  riskDetections(tenantId: string, days: number): R<RiskDetection[]>
+  setRisk(tenantId: string, userIds: string[], action: 'dismiss' | 'confirmCompromised'): R<void>
+  reported(tenantId: string, days: number): R<ReportedMsg[]>
+  retractJobs(tenantId: string): R<RetractJob[]>
+  startRetract(tenantId: string, s: RetractSpec): R<RetractJob>
+  purgeRetract(jobId: string, type: PurgeType): R<RetractJob>
+  discardRetract(jobId: string): R<void>
+  analyzed(tenantId: string, s: RetractSpec): R<AnalyzedEmail[]>
+  remediate(tenantId: string, emails: Pick<AnalyzedEmail, 'networkMessageId' | 'recipient'>[], action: DefenderAction, name: string): R<void>
+  onStatus(cb: (s: { tenantId: string; phase: ExoPhase }) => void): () => void
 }
 
 declare global {

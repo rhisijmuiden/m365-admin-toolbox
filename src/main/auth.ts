@@ -269,3 +269,16 @@ export async function teamsTokens(tenantId: string) {
 }
 
 export const teamsSignIn = (tenantId: string) => moduleSignIn(teamsClient(), tenantId, TEAMS_ADMIN_SCOPES, TEAMS_GRAPH_SCOPES, 'Microsoft Teams')
+
+/*
+ * Security & Compliance PowerShell uses the same first-party app as Exchange Online. Depending on the module
+ * version Connect-IPPSSession wants a token for the compliance endpoint or for Exchange Online, so both are
+ * handed to the helper, which keeps whichever connects.
+ */
+const SCC_SCOPES = ['https://ps.compliance.protection.outlook.com/.default']
+
+export async function sccTokens(tenantId: string) {
+  const exo = await exoToken(tenantId)
+  const scc = await moduleToken(exoClient(), tenantId, SCC_SCOPES, NeedsExoSignIn).catch(() => null)
+  return { tokens: [scc?.token, exo.token].filter((x): x is string => !!x), key: exo.token }
+}

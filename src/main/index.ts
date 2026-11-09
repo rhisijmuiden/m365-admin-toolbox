@@ -37,7 +37,18 @@ import type {
   NewAppReg,
   PimApproval,
   PimRoleSettings,
-  RoleAssign
+  RoleAssign,
+  AllowBlockList,
+  AnalyzedEmail,
+  AuditFilter,
+  DefenderAction,
+  NewAllowBlock,
+  PurgeType,
+  QuarantineFilter,
+  RestrictedSender,
+  RetractSpec,
+  SecPolicyKind,
+  TraceFilter
 } from '@shared/types'
 import { consentScopes, exoSignIn, forget, homeTenantOf, signInInteractive, teamsSignIn } from './auth'
 import * as exo from './exchange'
@@ -45,6 +56,7 @@ import * as entra from './entra'
 import * as exoPs from './exo'
 import * as graph from './graph'
 import * as pim from './pim'
+import * as sec from './security'
 import { initPimWatch } from './pimWatch'
 import { setPsWindow } from './ps'
 import { settings, teamTemplates, tenants } from './store'
@@ -167,6 +179,7 @@ function registerIpc() {
     tenants.remove(id)
     exoPs.closeSession(id)
     teams.closeSession(id)
+    sec.closeSession(id)
     if (t) await forget(t.homeAccountId)
     return tenants.list()
   })
@@ -312,6 +325,36 @@ function registerIpc() {
   handle('entra:guests', (id: string) => entra.guestUsers(id))
   handle('entra:invite', (id: string, i: Invite) => entra.invite(id, i))
   handle('entra:deleteGuests', (id: string, ids: string[]) => entra.deleteGuests(id, ids))
+  handle('sec:consent', (id: string, set: keyof typeof sec.SCOPE_SETS) => consentScopes(id, sec.SCOPE_SETS[set]))
+  handle('sec:quarantine', (id: string, f: QuarantineFilter) => sec.quarantine(id, f))
+  handle('sec:quarantinePreview', (id: string, q: string) => sec.quarantinePreview(id, q))
+  handle('sec:quarantineRelease', (id: string, ids: string[], allow: boolean, report: boolean) => sec.quarantineRelease(id, ids, allow, report))
+  handle('sec:quarantineDelete', (id: string, ids: string[]) => sec.quarantineDelete(id, ids))
+  handle('sec:allowBlock', (id: string) => sec.allowBlock(id))
+  handle('sec:newAllowBlock', (id: string, n: NewAllowBlock) => sec.newAllowBlock(id, n))
+  handle('sec:removeAllowBlock', (id: string, lt: AllowBlockList, ids: string[]) => sec.removeAllowBlock(id, lt, ids))
+  handle('sec:policies', (id: string) => sec.policies(id))
+  handle('sec:setPolicy', (id: string, kind: SecPolicyKind, name: string, p: Record<string, unknown>) => sec.setPolicy(id, kind, name, p))
+  handle('sec:setPolicyRule', (id: string, kind: SecPolicyKind, rule: string, enabled: boolean) => sec.setPolicyRule(id, kind, rule, enabled))
+  handle('sec:restricted', (id: string) => sec.restricted(id))
+  handle('sec:releaseSender', (id: string, s: RestrictedSender) => sec.releaseSender(id, s))
+  handle('sec:trace', (id: string, f: TraceFilter) => sec.trace(id, f))
+  handle('sec:traceDetail', (id: string, traceId: string, rcpt: string) => sec.traceDetail(id, traceId, rcpt))
+  handle('sec:auditStatus', (id: string) => sec.auditStatus(id))
+  handle('sec:enableAudit', (id: string) => sec.enableAudit(id))
+  handle('sec:audit', (id: string, f: AuditFilter) => sec.audit(id, f))
+  handle('sec:secureMailbox', (id: string, mbx: string, rules: boolean, fwd: boolean) => sec.secureMailbox(id, mbx, rules, fwd))
+  handle('sec:signIns', (id: string, userId: string) => sec.signIns(id, userId))
+  handle('sec:riskyUsers', (id: string) => sec.riskyUsers(id))
+  handle('sec:riskDetections', (id: string, days: number) => sec.riskDetections(id, days))
+  handle('sec:setRisk', (id: string, ids: string[], action: 'dismiss' | 'confirmCompromised') => sec.setRisk(id, ids, action))
+  handle('sec:reported', (id: string, days: number) => sec.reported(id, days))
+  handle('sec:retractJobs', (id: string) => sec.retractJobs(id))
+  handle('sec:startRetract', (id: string, s: RetractSpec) => sec.startRetract(id, s))
+  handle('sec:purgeRetract', (jobId: string, type: PurgeType) => sec.purgeRetract(jobId, type))
+  handle('sec:discardRetract', (jobId: string) => sec.discardRetract(jobId))
+  handle('sec:analyzed', (id: string, s: RetractSpec) => sec.analyzedEmails(id, s))
+  handle('sec:remediate', (id: string, e: Pick<AnalyzedEmail, 'networkMessageId' | 'recipient'>[], a: DefenderAction, name: string) => sec.remediate(id, e, a, name))
   handle('update:state', () => updateState())
   handle('update:check', () => checkForUpdates())
   handle('update:download', () => downloadUpdate())
@@ -337,5 +380,5 @@ else {
     exoPs.ensureModule().catch(() => undefined)
   })
   app.on('window-all-closed', () => app.quit())
-  app.on('will-quit', () => (exoPs.closeAll(), teams.closeAll()))
+  app.on('will-quit', () => (exoPs.closeAll(), teams.closeAll(), sec.closeAll()))
 }

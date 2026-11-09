@@ -121,6 +121,21 @@ const api = {
       'resetMfa', 'guests', 'invite', 'deleteGuests'
     ].map((k) => [k, inv(`entra:${k}`)])
   ),
+  sec: {
+    ...Object.fromEntries(
+      [
+        'consent', 'quarantine', 'quarantinePreview', 'quarantineRelease', 'quarantineDelete', 'allowBlock', 'newAllowBlock', 'removeAllowBlock',
+        'policies', 'setPolicy', 'setPolicyRule', 'restricted', 'releaseSender', 'trace', 'traceDetail', 'auditStatus', 'enableAudit', 'audit',
+        'secureMailbox', 'signIns', 'riskyUsers', 'riskDetections', 'setRisk', 'reported', 'retractJobs', 'startRetract', 'purgeRetract',
+        'discardRetract', 'analyzed', 'remediate'
+      ].map((k) => [k, inv(`sec:${k}`)])
+    ),
+    onStatus(cb: (s: { tenantId: string; phase: ExoPhase }) => void) {
+      const fn = (_e: unknown, s: { tenantId: string; phase: ExoPhase }) => cb(s)
+      ipcRenderer.on('scc:status', fn)
+      return () => ipcRenderer.removeListener('scc:status', fn)
+    }
+  },
   updateState: inv('update:state'),
   checkUpdate: inv('update:check'),
   downloadUpdate: inv('update:download'),

@@ -30,6 +30,16 @@ import { RolesView } from './views/Roles'
 import { PimAdminView } from './views/PimAdmin'
 import { MfaView } from './views/Mfa'
 import { EntraGuestsView } from './views/EntraGuests'
+import { QuarantineView } from './views/Quarantine'
+import { AllowBlockView } from './views/AllowBlock'
+import { SecPoliciesView } from './views/SecPolicies'
+import { RetractView } from './views/Retract'
+import { MessageTraceView } from './views/MessageTrace'
+import { RestrictedSendersView } from './views/RestrictedSenders'
+import { ReportedView } from './views/Reported'
+import { CompromisedView } from './views/Compromised'
+import { RiskyUsersView } from './views/RiskyUsers'
+import { AuditLogView } from './views/AuditLog'
 import logoDark from './assets/rhis-logo.svg'
 import logoLight from './assets/rhis-logo-wit.svg'
 
@@ -61,13 +71,28 @@ type View =
   | 'pimAdmin'
   | 'mfa'
   | 'entraGuests'
+  | 'quarantine'
+  | 'allowBlock'
+  | 'secPolicies'
+  | 'retract'
+  | 'messageTrace'
+  | 'restricted'
+  | 'reported'
+  | 'compromised'
+  | 'riskyUsers'
+  | 'auditLog'
 
-const NAV: { id: 'access' | 'm365' | 'exchange' | 'teams' | 'entra'; bg: string; items: [View, number][] }[] = [
+const NAV: { id: 'access' | 'm365' | 'exchange' | 'teams' | 'entra' | 'security'; bg: string; items: [View, number][] }[] = [
   { id: 'access', bg: 'linear-gradient(135deg,#ff8a6b,#e0503c)', items: [['pim', 0]] },
   { id: 'm365', bg: 'linear-gradient(135deg,#ea5a2b,#c2381f)', items: [['users', 0], ['licenses', 0], ['groups', 0]] },
   { id: 'exchange', bg: 'linear-gradient(135deg,#2a8be0,#0a5aa6)', items: [['mailboxes', 0], ['shared', 0], ['rooms', 0], ['distLists', 0], ['aliases', 0], ['inboxRules', 0], ['mailflow', 0]] },
   { id: 'teams', bg: 'linear-gradient(135deg,#7377dd,#4b4fb3)', items: [['teamsList', 0], ['teamGuests', 0], ['policies', 0], ['teamAccess', 0], ['teamPhone', 0], ['teamTemplates', 0]] },
-  { id: 'entra', bg: 'linear-gradient(135deg,#17a6a0,#0a6f75)', items: [['appRegs', 0], ['secrets', 0], ['apps', 0], ['riskyApps', 0], ['ca', 0], ['locations', 0], ['roles', 0], ['pimAdmin', 0], ['mfa', 0], ['entraGuests', 0]] }
+  { id: 'entra', bg: 'linear-gradient(135deg,#17a6a0,#0a6f75)', items: [['appRegs', 0], ['secrets', 0], ['apps', 0], ['riskyApps', 0], ['ca', 0], ['locations', 0], ['roles', 0], ['pimAdmin', 0], ['mfa', 0], ['entraGuests', 0]] },
+  {
+    id: 'security',
+    bg: 'linear-gradient(135deg,#e5484d,#a1262b)',
+    items: [['quarantine', 0], ['allowBlock', 0], ['secPolicies', 0], ['retract', 0], ['messageTrace', 0], ['restricted', 0], ['reported', 0], ['compromised', 0], ['riskyUsers', 0], ['auditLog', 0]]
+  }
 ]
 
 function useDark() {
@@ -287,6 +312,26 @@ export function App() {
             <MfaView key={tenant.tenantId + epoch} />
           ) : view === 'entraGuests' ? (
             <EntraGuestsView key={tenant.tenantId + epoch} />
+          ) : view === 'quarantine' ? (
+            <QuarantineView key={tenant.tenantId + epoch} />
+          ) : view === 'allowBlock' ? (
+            <AllowBlockView key={tenant.tenantId + epoch} />
+          ) : view === 'secPolicies' ? (
+            <SecPoliciesView key={tenant.tenantId + epoch} />
+          ) : view === 'retract' ? (
+            <RetractView key={tenant.tenantId + epoch} />
+          ) : view === 'messageTrace' ? (
+            <MessageTraceView key={tenant.tenantId + epoch} />
+          ) : view === 'restricted' ? (
+            <RestrictedSendersView key={tenant.tenantId + epoch} />
+          ) : view === 'reported' ? (
+            <ReportedView key={tenant.tenantId + epoch} />
+          ) : view === 'compromised' ? (
+            <CompromisedView key={tenant.tenantId + epoch} />
+          ) : view === 'riskyUsers' ? (
+            <RiskyUsersView key={tenant.tenantId + epoch} />
+          ) : view === 'auditLog' ? (
+            <AuditLogView key={tenant.tenantId + epoch} />
           ) : view === 'teamTemplates' ? (
             <TeamTemplatesView />
           ) : (

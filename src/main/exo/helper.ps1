@@ -431,6 +431,306 @@ function Tb-MailFlow {
   }
 }
 
+# ---------- security: quarantine ----------
+
+function QOut($q) {
+  @{
+    id            = "$($q.Identity)"
+    received      = Iso $q.ReceivedTime
+    sender        = "$($q.SenderAddress)"
+    recipients    = Strs $q.RecipientAddress
+    subject       = "$($q.Subject)"
+    size          = $q.Size
+    type          = "$($q.QuarantineTypes)"
+    policy        = "$($q.PolicyName)"
+    releaseStatus = "$($q.ReleaseStatus)"
+    expires       = Iso $q.Expires
+    direction     = "$($q.Direction)"
+    messageId     = "$($q.MessageId)"
+  }
+}
+
+function Tb-Quarantine([string]$Sender, [string]$Recipient, [string]$Type, [string]$Subject, $Start, $End, [int]$Page = 1) {
+  $p = @{ PageSize = 500; Page = $Page }
+  if ($Sender) { $p.SenderAddress = $Sender }
+  if ($Recipient) { $p.RecipientAddress = $Recipient }
+  if ($Type) { $p.QuarantineTypes = $Type }
+  if ($Subject) { $p.Subject = $Subject }
+  if ($Start) { $p.StartReceivedDate = [datetime]$Start }
+  if ($End) { $p.EndReceivedDate = [datetime]$End }
+  , @(Get-QuarantineMessage @p | ForEach-Object { QOut $_ })
+}
+
+function Tb-QuarantinePreview([string]$Identity) {
+  $m = Preview-QuarantineMessage -Identity $Identity
+  $h = $null
+  try { $h = "$((Get-QuarantineMessageHeader -Identity $Identity).Header)" } catch {}
+  $body = "$($m.Body)"
+  if ($body.Length -gt 400000) { $body = $body.Substring(0, 400000) }
+  @{
+    body        = $body
+    isHtml      = [bool]$m.IsHtml
+    from        = "$($m.SenderAddress)"
+    to          = Strs $m.RecipientAddress
+    cc          = Strs $m.Cc
+    subject     = "$($m.Subject)"
+    received    = Iso $m.ReceivedTime
+    attachments = Strs @($m.Attachment | ForEach-Object { if ($_.FileName) { $_.FileName } else { $_ } })
+    headers     = $h
+  }
+}
+
+function Tb-QuarantineRelease([string[]]$Ids, [bool]$AllowSender, [bool]$ReportFalsePositive) {
+  $failed = @()
+  foreach ($id in $Ids) {
+    try {
+      $p = @{ Identity = $id; ReleaseToAll = $true; Confirm = $false }
+      if ($AllowSender) { $p.AllowSender = $true }
+      if ($ReportFalsePositive) { $p.ReportFalsePositive = $true }
+      Release-QuarantineMessage @p
+    } catch { $failed += @{ id = $id; error = $_.Exception.Message } }
+  }
+  @{ failed = $failed }
+}
+
+function Tb-QuarantineDelete([string[]]$Ids) {
+  $failed = @()
+  foreach ($id in $Ids) { try { Delete-QuarantineMessage -Identity $id -Confirm:$false } catch { $failed += @{ id = $id; error = $_.Exception.Message } } }
+  @{ failed = $failed }
+}
+
+# ---------- security: tenant allow/block list ----------
+
+function Tb-AllowBlock {
+  $out = @()
+  foreach ($lt in 'Sender', 'Url', 'FileHash') {
+    try {
+      $out += @(Get-TenantAllowBlockListItems -ListType $lt | ForEach-Object {
+          @{ id = "$($_.Identity)"; value = "$($_.Value)"; action = "$($_.Action)"; listType = $lt; expires = Iso $_.ExpirationDate; notes = "$($_.Notes)"; modified = Iso $_.LastModifiedDateTime }
+        })
+    } catch {}
+  }
+  try {
+    $out += @(Get-TenantAllowBlockListSpoofItems | ForEach-Object {
+        @{ id = "$($_.Identity)"; value = "$($_.SpoofedUser) / $($_.SendingInfrastructure)"; action = "$($_.Action)"; listType = 'Spoof'; expires = $null; notes = "$($_.SpoofType)"; modified = Iso $_.LastModifiedDateTime }
+      })
+  } catch {}
+  , $out
+}
+
+function Tb-NewAllowBlock([string]$ListType, [string[]]$Entries, [string]$Action, $Days, [string]$Notes) {
+  $p = @{ ListType = $ListType; Entries = $Entries }
+  if ($Action -eq 'Allow') { $p.Allow = $true } else { $p.Block = $true }
+  if ($Days) { $p.ExpirationDate = (Get-Date).AddDays([int]$Days) } elseif ($Action -eq 'Allow') { $p.RemoveAfter = 45 } else { $p.NoExpiration = $true }
+  if ($Notes) { $p.Notes = $Notes }
+  New-TenantAllowBlockListItems @p | Out-Null
+  Tb-AllowBlock
+}
+
+function Tb-RemoveAllowBlock([string]$ListType, [string[]]$Ids) {
+  if ($ListType -eq 'Spoof') { Remove-TenantAllowBlockListSpoofItems -Identity Default -Ids $Ids }
+  else { Remove-TenantAllowBlockListItems -ListType $ListType -Ids $Ids }
+  Tb-AllowBlock
+}
+
+# ---------- security: anti-spam, anti-phishing and outbound policies ----------
+
+function RuleScope($r) {
+  if (-not $r) { return $null }
+  @{ rule = "$($r.Name)"; enabled = "$($r.State)" -eq 'Enabled'; priority = $r.Priority; users = Strs $r.SentTo; groups = Strs $r.SentToMemberOf; domains = Strs $r.RecipientDomainIs }
+}
+
+function Pick($o, [string[]]$names) {
+  $h = @{}
+  foreach ($n in $names) {
+    $v = $o.$n
+    if ($v -is [System.Collections.IEnumerable] -and $v -isnot [string]) { $h[$n] = Strs $v }
+    elseif ($v -is [bool] -or $v -is [int] -or $v -is [long] -or $v -is [double] -or $null -eq $v) { $h[$n] = $v }
+    else { $h[$n] = "$v" }
+  }
+  $h
+}
+
+$SpamFields = 'BulkThreshold', 'MarkAsSpamBulkMail', 'SpamAction', 'HighConfidenceSpamAction', 'PhishSpamAction', 'HighConfidencePhishAction', 'BulkSpamAction',
+'QuarantineRetentionPeriod', 'AllowedSenders', 'AllowedSenderDomains', 'BlockedSenders', 'BlockedSenderDomains', 'SpamZapEnabled', 'PhishZapEnabled',
+'InlineSafetyTipsEnabled', 'EnableLanguageBlockList', 'LanguageBlockList', 'EnableRegionBlockList', 'RegionBlockList'
+$PhishFields = 'Enabled', 'PhishThresholdLevel', 'EnableSpoofIntelligence', 'AuthenticationFailAction', 'EnableUnauthenticatedSender', 'EnableViaTag',
+'EnableFirstContactSafetyTips', 'EnableMailboxIntelligence', 'EnableMailboxIntelligenceProtection', 'MailboxIntelligenceProtectionAction',
+'EnableTargetedUserProtection', 'TargetedUsersToProtect', 'TargetedUserProtectionAction', 'EnableOrganizationDomainsProtection',
+'EnableTargetedDomainsProtection', 'TargetedDomainsToProtect', 'TargetedDomainProtectionAction', 'ExcludedSenders', 'ExcludedDomains',
+'EnableSimilarUsersSafetyTips', 'EnableSimilarDomainsSafetyTips', 'EnableUnusualCharactersSafetyTips'
+$OutboundFields = 'RecipientLimitExternalPerHour', 'RecipientLimitInternalPerHour', 'RecipientLimitPerDay', 'ActionWhenThresholdReached', 'AutoForwardingMode',
+'NotifyOutboundSpam', 'NotifyOutboundSpamRecipients', 'BccSuspiciousOutboundMail', 'BccSuspiciousOutboundAdditionalRecipients'
+
+function PolicyOut($p, [string]$kind, $rules, [string[]]$fields, [string]$ruleProp) {
+  $r = $rules | Where-Object { "$($_.$ruleProp)" -eq "$($p.Name)" } | Select-Object -First 1
+  @{
+    kind     = $kind
+    name     = "$($p.Name)"
+    isDefault = [bool]$p.IsDefault
+    preset   = "$($p.RecommendedPolicyType)" -match 'Standard|Strict'
+    builtIn  = "$($p.Name)" -match '^Built-In Protection|^Standard Preset|^Strict Preset'
+    modified = Iso $p.WhenChanged
+    scope    = RuleScope $r
+    settings = Pick $p $fields
+  }
+}
+
+function Tb-SecPolicies {
+  $spamRules = @(Get-HostedContentFilterRule -ErrorAction SilentlyContinue)
+  $phishRules = @(Get-AntiPhishRule -ErrorAction SilentlyContinue)
+  $outRules = @(Get-HostedOutboundSpamFilterRule -ErrorAction SilentlyContinue)
+  @{
+    mdo      = [bool](Get-Command Get-SafeLinksPolicy -ErrorAction SilentlyContinue)
+    spam     = @(Get-HostedContentFilterPolicy | ForEach-Object { PolicyOut $_ 'spam' $spamRules $SpamFields 'HostedContentFilterPolicy' })
+    phish    = @(Get-AntiPhishPolicy | ForEach-Object { PolicyOut $_ 'phish' $phishRules $PhishFields 'AntiPhishPolicy' })
+    outbound = @(Get-HostedOutboundSpamFilterPolicy | ForEach-Object { PolicyOut $_ 'outbound' $outRules $OutboundFields 'HostedOutboundSpamFilterPolicy' })
+  }
+}
+
+function Tb-SetSecPolicy([string]$Kind, [string]$Identity, $Params) {
+  $allowed = switch ($Kind) { 'spam' { $SpamFields } 'phish' { $PhishFields } 'outbound' { $OutboundFields } default { throw "Unknown kind $Kind" } }
+  $p = @{}
+  foreach ($k in $Params.Keys) { if ($allowed -contains $k) { $p[$k] = $Params[$k] } else { throw "Parameter $k is not allowed" } }
+  switch ($Kind) {
+    'spam' { Set-HostedContentFilterPolicy -Identity $Identity @p }
+    'phish' { Set-AntiPhishPolicy -Identity $Identity @p }
+    'outbound' { Set-HostedOutboundSpamFilterPolicy -Identity $Identity @p }
+  }
+  Tb-SecPolicies
+}
+
+function Tb-SetSecRule([string]$Kind, [string]$Rule, [bool]$Enabled) {
+  $verb = if ($Enabled) { 'Enable' } else { 'Disable' }
+  $noun = switch ($Kind) { 'spam' { 'HostedContentFilterRule' } 'phish' { 'AntiPhishRule' } 'outbound' { 'HostedOutboundSpamFilterRule' } default { throw "Unknown kind $Kind" } }
+  & "$verb-$noun" -Identity $Rule -Confirm:$false
+  Tb-SecPolicies
+}
+
+# ---------- security: restricted senders ----------
+
+function Tb-RestrictedSenders {
+  , @(Get-BlockedSenderAddress | ForEach-Object { @{ sender = "$($_.SenderAddress)"; reason = "$($_.Reason)"; created = Iso $_.CreatedDatetime; changed = Iso $_.ChangedDatetime } })
+}
+
+function Tb-ReleaseSender([string]$Sender, [string]$Reason) {
+  Remove-BlockedSenderAddress -SenderAddress $Sender -Reason $Reason
+  Tb-RestrictedSenders
+}
+
+# ---------- security: message trace ----------
+
+function TraceOut($m) {
+  @{
+    received  = Iso $m.Received
+    sender    = "$($m.SenderAddress)"
+    recipient = "$($m.RecipientAddress)"
+    subject   = "$($m.Subject)"
+    status    = "$($m.Status)"
+    fromIp    = "$($m.FromIP)"
+    toIp      = "$($m.ToIP)"
+    size      = $m.Size
+    messageId = "$($m.MessageId)"
+    traceId   = "$($m.MessageTraceId)"
+  }
+}
+
+# Get-MessageTraceV2 replaces Get-MessageTrace; older module versions only have the latter.
+function Tb-MessageTrace([string]$Sender, [string]$Recipient, [string]$Subject, [string]$Status, $Start, $End) {
+  $p = @{ StartDate = [datetime]$Start; EndDate = [datetime]$End }
+  if ($Sender) { $p.SenderAddress = $Sender }
+  if ($Recipient) { $p.RecipientAddress = $Recipient }
+  if ($Status) { $p.Status = $Status }
+  if (Get-Command Get-MessageTraceV2 -ErrorAction SilentlyContinue) {
+    if ($Subject) { $p.Subject = $Subject; $p.SubjectFilterType = 'Contains' }
+    $rows = @(Get-MessageTraceV2 @p -ResultSize 5000)
+  } else {
+    $rows = @(Get-MessageTrace @p -PageSize 5000)
+    if ($Subject) { $rows = @($rows | Where-Object { "$($_.Subject)" -like "*$Subject*" }) }
+  }
+  , @($rows | ForEach-Object { TraceOut $_ })
+}
+
+function Tb-MessageTraceDetail([string]$TraceId, [string]$Recipient) {
+  $rows = if (Get-Command Get-MessageTraceDetailV2 -ErrorAction SilentlyContinue) { Get-MessageTraceDetailV2 -MessageTraceId $TraceId -RecipientAddress $Recipient }
+  else { Get-MessageTraceDetail -MessageTraceId $TraceId -RecipientAddress $Recipient }
+  , @($rows | ForEach-Object { @{ date = Iso $_.Date; event = "$($_.Event)"; action = "$($_.Action)"; detail = "$($_.Detail)" } })
+}
+
+# ---------- security: audit log ----------
+
+function Tb-AuditStatus { @{ enabled = [bool](Get-AdminAuditLogConfig).UnifiedAuditLogIngestionEnabled } }
+
+function Tb-EnableAudit { Set-AdminAuditLogConfig -UnifiedAuditLogIngestionEnabled $true; Tb-AuditStatus }
+
+function Tb-Audit($Start, $End, [string[]]$Users, [string[]]$Operations, [string]$RecordType, [string]$FreeText) {
+  $p = @{ StartDate = [datetime]$Start; EndDate = [datetime]$End; ResultSize = 5000 }
+  if ($Users) { $p.UserIds = $Users }
+  if ($Operations) { $p.Operations = $Operations }
+  if ($RecordType) { $p.RecordType = $RecordType }
+  if ($FreeText) { $p.FreeText = $FreeText }
+  , @(Search-UnifiedAuditLog @p | ForEach-Object {
+      $d = $null
+      try { $d = ConvertFrom-Json "$($_.AuditData)" } catch {}
+      $raw = "$($_.AuditData)"
+      if ($raw.Length -gt 6000) { $raw = $raw.Substring(0, 6000) }
+      @{
+        id         = "$($_.Identity)"
+        date       = Iso $_.CreationDate
+        user       = "$($_.UserIds)"
+        operation  = "$($_.Operations)"
+        recordType = "$($_.RecordType)"
+        workload   = if ($d) { "$($d.Workload)" } else { '' }
+        clientIp   = if ($d) { "$($d.ClientIP)$($d.ClientIPAddress)" } else { '' }
+        object     = if ($d) { "$($d.ObjectId)" } else { '' }
+        mailbox    = if ($d) { "$($d.MailboxOwnerUPN)" } else { '' }
+        result     = if ($d) { "$($d.ResultStatus)" } else { '' }
+        data       = $raw
+      }
+    })
+}
+
+# ---------- security: compromised account ----------
+
+function RuleFlags($r, [string[]]$domains) {
+  $targets = @(@($r.ForwardTo) + @($r.ForwardAsAttachmentTo) + @($r.RedirectTo) | Where-Object { $_ } | ForEach-Object {
+      $s = "$_"
+      if ($s -match '\[SMTP:([^\]]+)\]') { $matches[1] } elseif ($s -match '^"?([^"]+@[^"\s]+)') { $matches[1] } else { $s }
+    })
+  $flags = @()
+  if ($targets.Count) { $flags += 'forward' }
+  if (@($targets | Where-Object { $_ -match '@' -and $domains -notcontains ($_.Split('@')[-1].ToLower()) }).Count) { $flags += 'external' }
+  if ($r.DeleteMessage -or $r.SoftDeleteMessage) { $flags += 'delete' }
+  if ("$($r.MoveToFolder)" -match $SuspectFolders) { $flags += 'move' }
+  @{ targets = $targets; flags = $flags }
+}
+
+# Removes inbox rules that forward, delete or hide mail, and mailbox forwarding, for one mailbox.
+function Tb-SecureMailbox([string]$Identity, [bool]$Rules, [bool]$Forwarding) {
+  $domains = @(Get-AcceptedDomain | ForEach-Object { "$($_.DomainName)".ToLower() })
+  $removed = @()
+  $failed = @()
+  if ($Rules) {
+    foreach ($r in @(Get-InboxRule -Mailbox $Identity)) {
+      $f = RuleFlags $r $domains
+      if (-not $f.flags.Count) { continue }
+      try { Remove-InboxRule -Mailbox $Identity -Identity "$($r.RuleIdentity)" -Confirm:$false -AlwaysDeleteOutlookRulesBlob; $removed += "$($r.Name)" }
+      catch { $failed += @{ rule = "$($r.Name)"; error = $_.Exception.Message } }
+    }
+  }
+  $fwd = $null
+  if ($Forwarding) {
+    $m = Get-EXOMailbox -Identity $Identity -Properties ForwardingSmtpAddress, ForwardingAddress
+    if ($m.ForwardingSmtpAddress -or $m.ForwardingAddress) {
+      $fwd = if ($m.ForwardingSmtpAddress) { ("$($m.ForwardingSmtpAddress)" -replace '^smtp:', '') } else { "$($m.ForwardingAddress)" }
+      Set-Mailbox -Identity $Identity -ForwardingSmtpAddress $null -ForwardingAddress $null -DeliverToMailboxAndForward $false
+    }
+  }
+  $blocked = $null
+  try { $b = Get-BlockedSenderAddress -SenderAddress $Identity -ErrorAction SilentlyContinue | Select-Object -First 1; if ($b) { $blocked = "$($b.Reason)" } } catch {}
+  @{ rulesRemoved = $removed; failed = $failed; forwardingRemoved = $fwd; restricted = $blocked }
+}
+
 # ---------- loop ----------
 
 while ($true) {
