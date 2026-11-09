@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { NewGroup } from '@shared/types'
-import { unwrap, useApp, useLoad } from '../ctx'
+import { unwrap, useApp, useLoad, takeSearch } from '../ctx'
 import { fmtDate } from '../i18n'
 import { Icon, LoadState, Modal } from '../components/ui'
 
@@ -8,7 +8,7 @@ export function GroupsView() {
   const { t, lang, tenant, toast } = useApp()
   const tid = tenant!.tenantId
   const groups = useLoad(() => window.api.listGroups(tid), [tid])
-  const [q, setQ] = useState('')
+  const [q, setQ] = useState(takeSearch)
   const [open, setOpen] = useState(false)
   const list = (groups.data || []).filter((g) => (g.displayName + (g.mail || '')).toLowerCase().includes(q.toLowerCase()))
 

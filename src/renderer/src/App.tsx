@@ -40,11 +40,23 @@ import { ReportedView } from './views/Reported'
 import { CompromisedView } from './views/Compromised'
 import { RiskyUsersView } from './views/RiskyUsers'
 import { AuditLogView } from './views/AuditLog'
+import { DashboardView } from './views/Dashboard'
+import { CrossSearchView } from './views/CrossSearch'
+import { OnboardView } from './views/Onboard'
+import { OffboardView } from './views/Offboard'
+import { BulkView } from './views/Bulk'
+import { ActivityView } from './views/Activity'
 import logoDark from './assets/rhis-logo.svg'
 import logoLight from './assets/rhis-logo-wit.svg'
 
 type View =
-  | 'pim'
+    | 'dashboard'
+  | 'search'
+  | 'onboard'
+  | 'offboard'
+  | 'bulk'
+  | 'activity'
+| 'pim'
   | 'users'
   | 'licenses'
   | 'groups'
@@ -82,7 +94,8 @@ type View =
   | 'riskyUsers'
   | 'auditLog'
 
-const NAV: { id: 'access' | 'm365' | 'exchange' | 'teams' | 'entra' | 'security'; bg: string; items: [View, number][] }[] = [
+const NAV: { id: 'cross' | 'access' | 'm365' | 'exchange' | 'teams' | 'entra' | 'security'; bg: string; items: [View, number][] }[] = [
+  { id: 'cross', bg: 'linear-gradient(135deg,#f0a43a,#c46f0a)', items: [['dashboard', 0], ['search', 0], ['onboard', 0], ['offboard', 0], ['bulk', 0], ['activity', 0]] },
   { id: 'access', bg: 'linear-gradient(135deg,#ff8a6b,#e0503c)', items: [['pim', 0]] },
   { id: 'm365', bg: 'linear-gradient(135deg,#ea5a2b,#c2381f)', items: [['users', 0], ['licenses', 0], ['groups', 0]] },
   { id: 'exchange', bg: 'linear-gradient(135deg,#2a8be0,#0a5aa6)', items: [['mailboxes', 0], ['shared', 0], ['rooms', 0], ['distLists', 0], ['aliases', 0], ['inboxRules', 0], ['mailflow', 0]] },
@@ -332,6 +345,18 @@ export function App() {
             <RiskyUsersView key={tenant.tenantId + epoch} />
           ) : view === 'auditLog' ? (
             <AuditLogView key={tenant.tenantId + epoch} />
+          ) : view === 'dashboard' ? (
+            <DashboardView key={epoch} />
+          ) : view === 'search' ? (
+            <CrossSearchView key={epoch} />
+          ) : view === 'onboard' ? (
+            <OnboardView key={tenant.tenantId + epoch} />
+          ) : view === 'offboard' ? (
+            <OffboardView key={tenant.tenantId + epoch} />
+          ) : view === 'bulk' ? (
+            <BulkView key={tenant.tenantId + epoch} />
+          ) : view === 'activity' ? (
+            <ActivityView key={epoch} />
           ) : view === 'teamTemplates' ? (
             <TeamTemplatesView />
           ) : (

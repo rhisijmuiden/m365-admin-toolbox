@@ -1,17 +1,17 @@
 import { useState } from 'react'
 import type { Sku, User } from '@shared/types'
-import { genPassword, initials, unwrap, useApp, useLoad } from '../ctx'
+import { genPassword, initials, unwrap, useApp, useLoad, takeSearch } from '../ctx'
 import { fmtDate } from '../i18n'
 import { CopyButton, Icon, LoadState, Modal, RowMenu } from '../components/ui'
 
-const LOCATIONS = ['NL', 'BE', 'DE', 'LU', 'FR', 'GB', 'US']
+export const LOCATIONS = ['NL', 'BE', 'DE', 'LU', 'FR', 'GB', 'US']
 
 export function UsersView() {
   const { t, lang, tenant, toast } = useApp()
   const tid = tenant!.tenantId
   const users = useLoad(() => window.api.listUsers(tid), [tid])
   const skus = useLoad(() => window.api.listSkus(tid), [tid])
-  const [q, setQ] = useState('')
+  const [q, setQ] = useState(takeSearch)
   const [sel, setSel] = useState<Set<string>>(new Set())
   const [modal, setModal] = useState<
     | { k: 'create' }
@@ -246,7 +246,7 @@ export function UsersView() {
   )
 }
 
-function LicenseOptions({ skus, checked, mixed, onToggle }: {
+export function LicenseOptions({ skus, checked, mixed, onToggle }: {
   skus: Sku[]
   checked: Set<string>
   mixed?: Set<string>
@@ -283,7 +283,7 @@ function LicenseOptions({ skus, checked, mixed, onToggle }: {
   )
 }
 
-const slug = (s: string) =>
+export const slug = (s: string) =>
   s
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')

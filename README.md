@@ -56,6 +56,15 @@ Multi-tenant Microsoft 365 admin desktop app for Windows, by RHIS.
 - **Risky users**: Entra ID Protection risky users (confirm compromised, dismiss) and risk detections (needs Entra ID P2).
 - **Audit log**: search the unified audit log by user, operation, category and text with presets for common questions (inbox rules, deleted mail, mail read, permissions, roles, sign-ins), see the raw record, export to CSV, and turn the audit log on when it is off.
 
+### All tenants (phase 6)
+
+- **Morning dashboard**: license shortages, secrets and certificates expiring within 30 days, quarantined mail of the last 24 hours (optional, through Exchange) and teams without an owner, for every connected tenant, with a click-through to the screen of that tenant.
+- **Search all tenants**: one search box for users, guests, groups, enterprise apps and app registrations in every tenant at once. With an @ it also searches aliases (proxy addresses); an app id or object id finds apps.
+- **New employee**: account, licenses, groups (including distribution lists), Teams, access to shared mailboxes and an optional Temporary Access Pass in one run, in any tenant. Licenses and groups can be copied from a colleague. Failed steps can be retried, for example once Exchange knows the new account.
+- **Leaving employee**: block sign-in, sign out everywhere, a random password, automatic reply, forwarding or full access for a colleague, hide from the address list, remove from groups, convert the mailbox to shared and remove the licenses; each step is optional.
+- **Bulk from CSV**: create users, swap licenses or add aliases from a CSV file (comma or semicolon separated). Each row finds its tenant from a tenant column or the domain of the address, so one file can cover several tenants. A preview checks the rows first; results and generated passwords show per row.
+- **Activity log**: every change made through the app is written to a local log (`activity.jsonl` in the app data folder) with the tenant, the action, the details and the result, with passwords and secrets left out. Filter it per tenant and export it to CSV.
+
 ## How it works
 
 - Electron + React + TypeScript (electron-vite).

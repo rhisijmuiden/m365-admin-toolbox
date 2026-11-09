@@ -194,3 +194,10 @@ tr.muted td { opacity: .55; }
 .fld, .row2 > * { min-width: 0; }
 .fld > select, .fld > input { min-width: 0; max-width: 100%; }
 .modal .seg { flex-wrap: wrap; }
+
+/* Cross-tenant screens: panels stacked with one gap. */
+.stack { display: grid; gap: 16px; align-content: start; grid-auto-rows: max-content; }
+.stack .panel + .panel { margin-top: 0; }
+.stack .tiles { margin-bottom: 0; }
+.stack .row2 { align-items: start; }
+:where(.stack) :where(input:not([type=checkbox], [type=radio], [type=file]), select, textarea), :where(.top-r) :where(select) { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); min-width: 0; }

@@ -3,12 +3,14 @@ import { exEn, exNl } from './i18n-exchange'
 import { tmEn, tmNl } from './i18n-teams'
 import { enEn, enNl } from './i18n-entra'
 import { seEn, seNl } from './i18n-security'
+import { crEn, crNl } from './i18n-cross'
 
 const en = {
   ...exEn,
   ...tmEn,
   ...enEn,
   ...seEn,
+  ...crEn,
   appName: 'M365 Admin Toolbox',
   appSub: 'Multi-tenant admin',
   searchTenants: 'Search tenants',
@@ -234,6 +236,7 @@ const nl: Dict = {
   ...tmNl,
   ...enNl,
   ...seNl,
+  ...crNl,
   appName: 'M365 Admin Toolbox',
   appSub: 'Multi-tenant beheer',
   searchTenants: 'Tenants zoeken',

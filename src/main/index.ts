@@ -50,7 +50,9 @@ import type {
   SecPolicyKind,
   TraceFilter
 } from '@shared/types'
+import * as activity from './activity'
 import { consentScopes, exoSignIn, forget, homeTenantOf, signInInteractive, teamsSignIn } from './auth'
+import * as cross from './cross'
 import * as exo from './exchange'
 import * as entra from './entra'
 import * as exoPs from './exo'
@@ -104,11 +106,16 @@ function createWindow() {
 
 /** Wraps a handler so errors reach the renderer as a Result instead of a rejected invoke. */
 function handle<A extends unknown[], T>(name: string, fn: (...args: A) => Promise<T> | T) {
+  const log = activity.shouldLog(name)
   ipcMain.handle(name, async (_e, ...args: unknown[]): Promise<Result<T>> => {
+    const pre = log ? activity.tenantOf(args) : null
     try {
-      return { ok: true, data: await fn(...(args as A)) }
+      const data = await fn(...(args as A))
+      if (pre) activity.record(name, pre, true, undefined, data)
+      return { ok: true, data }
     } catch (e) {
       const err = e as Error & { code?: string; status?: number }
+      if (pre) activity.record(name, pre, false, err.message || String(e))
       return { ok: false, error: err.message || String(e), code: err.code, status: err.status }
     }
   })
@@ -355,6 +362,14 @@ function registerIpc() {
   handle('sec:discardRetract', (jobId: string) => sec.discardRetract(jobId))
   handle('sec:analyzed', (id: string, s: RetractSpec) => sec.analyzedEmails(id, s))
   handle('sec:remediate', (id: string, e: Pick<AnalyzedEmail, 'networkMessageId' | 'recipient'>[], a: DefenderAction, name: string) => sec.remediate(id, e, a, name))
+  handle('cross:search', (id: string, q: string) => cross.search(id, q))
+  handle('cross:userGroups', (id: string, user: string) => cross.userGroups(id, user))
+  handle('cross:addToGroups', (id: string, userId: string, upn: string, g: Parameters<typeof cross.setGroups>[3]) => cross.setGroups(id, userId, upn, g, true))
+  handle('cross:removeFromGroups', (id: string, userId: string, upn: string, g: Parameters<typeof cross.setGroups>[3]) => cross.setGroups(id, userId, upn, g, false))
+  handle('cross:removeLicenses', (id: string, user: string) => cross.removeLicenses(id, user))
+  handle('cross:findUser', (id: string, user: string) => cross.findUser(id, user))
+  handle('activity:list', (id?: string) => activity.list(id))
+  handle('activity:export', (id?: string) => activity.exportCsv(win, id))
   handle('update:state', () => updateState())
   handle('update:check', () => checkForUpdates())
   handle('update:download', () => downloadUpdate())

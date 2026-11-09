@@ -136,6 +136,10 @@ const api = {
       return () => ipcRenderer.removeListener('scc:status', fn)
     }
   },
+  cross: Object.fromEntries(
+    ['search', 'userGroups', 'addToGroups', 'removeFromGroups', 'removeLicenses', 'findUser'].map((k) => [k, inv(`cross:${k}`)])
+  ),
+  activity: { list: inv('activity:list'), export: inv('activity:export') },
   updateState: inv('update:state'),
   checkUpdate: inv('update:check'),
   downloadUpdate: inv('update:download'),
