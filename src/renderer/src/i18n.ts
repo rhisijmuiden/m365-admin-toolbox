@@ -1,6 +1,8 @@
 import type { Lang } from '@shared/types'
+import { exEn, exNl } from './i18n-exchange'
 
 const en = {
+  ...exEn,
   appName: 'M365 Admin Toolbox',
   appSub: 'Multi-tenant admin',
   searchTenants: 'Search tenants',
@@ -101,7 +103,7 @@ const en = {
   ngM365D: 'Shared mailbox, calendar, files and optionally a team.',
   ngSec: 'Security group',
   ngSecD: 'For access to apps, files and policies.',
-  ngDistNote: 'Distribution lists are created through Exchange and arrive in phase 2.',
+  ngDistNote: 'Distribution lists and mail-enabled security groups are under Exchange > Distribution lists.',
   ngMail: 'Mail alias',
   ngDesc: 'Description',
   ngOwner: 'Owner',
@@ -222,6 +224,7 @@ const en = {
 type Dict = typeof en
 
 const nl: Dict = {
+  ...exNl,
   appName: 'M365 Admin Toolbox',
   appSub: 'Multi-tenant beheer',
   searchTenants: 'Tenants zoeken',
@@ -322,7 +325,7 @@ const nl: Dict = {
   ngM365D: 'Gedeelde mailbox, agenda, bestanden en eventueel een team.',
   ngSec: 'Beveiligingsgroep',
   ngSecD: 'Voor toegang tot apps, bestanden en beleid.',
-  ngDistNote: 'Distributielijsten gaan via Exchange en komen in fase 2.',
+  ngDistNote: 'Distributielijsten en beveiligingsgroepen met mail staan onder Exchange > Distributielijsten.',
   ngMail: 'Mailalias',
   ngDesc: 'Omschrijving',
   ngOwner: 'Eigenaar',

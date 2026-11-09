@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useApp, type ApiError } from '../ctx'
 
 export const Icon = {
@@ -156,5 +156,48 @@ export function CopyButton({ text }: { text: string }) {
     <button type="button" className="btn sm" onClick={() => navigator.clipboard.writeText(text).then(() => toast(t('copied')))}>
       {t('copy')}
     </button>
+  )
+}
+
+export function RowMenu({ items }: { items: [string, () => void][] }) {
+  const { t } = useApp()
+  // The menu is position:fixed so the table's overflow container doesn't clip it.
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const open = !!pos
+  const setOpen = (v: boolean) => !v && setPos(null)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const f = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false)
+    document.addEventListener('mousedown', f)
+    return () => document.removeEventListener('mousedown', f)
+  }, [open])
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button className="btn sm" aria-label={t('more')} title={t('more')} onClick={(e) => {
+          if (open) return setPos(null)
+          const r = e.currentTarget.getBoundingClientRect()
+          setPos({ top: Math.min(r.bottom + 4, window.innerHeight - 190), left: r.right - 220 })
+        }}>
+        {Icon.dots}
+      </button>
+      {open && (
+        <div className="tenant-menu" style={{ position: 'fixed', top: pos!.top, left: pos!.left, width: 220 }}>
+          {items.map(([label, fn]) => (
+            <button
+              key={label}
+              className="tm-item"
+              style={{ width: '100%', borderRadius: 7 }}
+              onClick={() => {
+                setOpen(false)
+                fn()
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

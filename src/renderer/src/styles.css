@@ -180,3 +180,12 @@ details summary { cursor: pointer; font-size: 12.5px; font-weight: 500; color: v
 
 @media (max-width: 1100px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: no-preference) { .nav-item, .btn, .tenant-btn { transition: background .15s, border-color .15s; } }
+
+/* Exchange (phase 2) */
+.linkish { background: none; border: 0; padding: 0; text-align: left; cursor: pointer; color: inherit; font: inherit; }
+.linkish:hover .u-n { color: var(--accent); }
+.fld textarea { resize: vertical; min-height: 70px; }
+.flag { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 5px; margin-right: 4px; background: var(--warn-soft); color: var(--warn); font-weight: 500; }
+.flag.external, .flag.delete, .flag.hide { background: var(--bad-soft); color: var(--bad); }
+tr.muted td { opacity: .55; }
+.fld > .seg, .m-b > .seg { justify-self: start; }

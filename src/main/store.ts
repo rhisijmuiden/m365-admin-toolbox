@@ -58,24 +58,33 @@ export const tenants = {
   get: (id: string) => tenants.list().find((x) => x.tenantId === id)
 }
 
-/** MSAL token cache, encrypted with the Windows user's DPAPI key via safeStorage. */
-export const tokenCache = {
-  path: () => join(dir(), 'msal-cache.bin'),
-  read(): string {
-    const p = tokenCache.path()
-    if (!existsSync(p)) return ''
-    const buf = readFileSync(p)
-    if (safeStorage.isEncryptionAvailable()) {
-      try {
-        return safeStorage.decryptString(buf)
-      } catch {
-        return ''
+/** MSAL token cache file, encrypted with the Windows user's DPAPI key via safeStorage. */
+function encryptedFile(name: string) {
+  const path = () => join(dir(), name)
+  return {
+    path,
+    read(): string {
+      const p = path()
+      if (!existsSync(p)) return ''
+      const buf = readFileSync(p)
+      if (safeStorage.isEncryptionAvailable()) {
+        try {
+          return safeStorage.decryptString(buf)
+        } catch {
+          return ''
+        }
       }
+      return buf.toString('utf8')
+    },
+    write(data: string) {
+      const out = safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(data) : Buffer.from(data, 'utf8')
+      writeFileSync(path(), out)
     }
-    return buf.toString('utf8')
-  },
-  write(data: string) {
-    const out = safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(data) : Buffer.from(data, 'utf8')
-    writeFileSync(tokenCache.path(), out)
   }
 }
+
+export const tokenCache = encryptedFile('msal-cache.bin')
+/** Separate cache for the Exchange Online PowerShell client, so two MSAL clients never write one file. */
+export const exoTokenCache = encryptedFile('msal-exo-cache.bin')
+
+export const userDataDir = dir

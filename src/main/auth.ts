@@ -6,7 +6,7 @@ import {
   type AuthenticationResult,
   type ICachePlugin
 } from '@azure/msal-node'
-import { settings, tenants, tokenCache } from './store'
+import { exoTokenCache, settings, tenants, tokenCache } from './store'
 
 export const SCOPES = [
   'User.ReadWrite.All',
@@ -26,14 +26,16 @@ export const SCOPES = [
   'DelegatedAdminRelationship.Read.All'
 ]
 
-const cachePlugin: ICachePlugin = {
+const pluginFor = (file: typeof tokenCache): ICachePlugin => ({
   async beforeCacheAccess(ctx) {
-    ctx.tokenCache.deserialize(tokenCache.read())
+    ctx.tokenCache.deserialize(file.read())
   },
   async afterCacheAccess(ctx) {
-    if (ctx.cacheHasChanged) tokenCache.write(ctx.tokenCache.serialize())
+    if (ctx.cacheHasChanged) file.write(ctx.tokenCache.serialize())
   }
-}
+})
+
+const cachePlugin = pluginFor(tokenCache)
 
 let pca: PublicClientApplication | null = null
 let pcaClientId = ''
@@ -145,4 +147,97 @@ export async function forget(homeAccountId: string) {
   if (tenants.list().some((t) => t.homeAccountId === homeAccountId)) return
   const account = await accountFor(homeAccountId)
   if (account) await client().getTokenCache().removeAccount(account)
+  const exoAccount = await exoClient().getTokenCache().getAccountByHomeId(homeAccountId)
+  if (exoAccount) await exoClient().getTokenCache().removeAccount(exoAccount)
+}
+
+export class NeedsConsent extends Error {
+  code = 'NEEDS_CONSENT'
+}
+
+/** Graph token with scopes outside the base set (e.g. Reports.Read.All), which not every tenant has consented to. */
+export async function tokenForScopes(tenantId: string, scopes: string[]): Promise<string> {
+  const t = tenants.get(tenantId)
+  if (!t) throw new Error(`Unknown tenant ${tenantId}`)
+  const account = await accountFor(t.homeAccountId)
+  if (!account) throw new NeedsSignIn('No cached account for this tenant')
+  try {
+    const r = await client().acquireTokenSilent({ account, scopes, authority: `https://login.microsoftonline.com/${tenantId}` })
+    return r.accessToken
+  } catch (e) {
+    if (e instanceof InteractionRequiredAuthError) throw new NeedsConsent(e.message)
+    throw e
+  }
+}
+
+/** Interactive sign-in that asks consent for extra Graph scopes. */
+export async function consentScopes(tenantId: string, scopes: string[]) {
+  const t = tenants.get(tenantId)
+  if (!t) throw new Error(`Unknown tenant ${tenantId}`)
+  await client().acquireTokenInteractive({
+    scopes,
+    authority: `https://login.microsoftonline.com/${tenantId}`,
+    loginHint: t.username,
+    openBrowser: async (url) => {
+      await shell.openExternal(url)
+    },
+    successTemplate: page('Signed in / Aangemeld', 'You can close this tab and return to M365 Admin Toolbox.'),
+    errorTemplate: page('Sign-in failed / Aanmelden mislukt', 'Return to M365 Admin Toolbox for details.')
+  })
+}
+
+/*
+ * Exchange Online: Connect-ExchangeOnline -AccessToken needs a token for outlook.office365.com issued to the
+ * Exchange Online PowerShell app itself. It is a separate public client with its own consent and cache;
+ * the user signs in once per tenant (usually SSO in the browser) and refresh tokens do the rest.
+ */
+export const EXO_CLIENT_ID = 'fb78d390-0c51-40cd-8e17-fdbfab77341b'
+const EXO_SCOPES = ['https://outlook.office365.com/.default']
+
+let exoPca: PublicClientApplication | null = null
+function exoClient(): PublicClientApplication {
+  if (!exoPca)
+    exoPca = new PublicClientApplication({
+      auth: { clientId: EXO_CLIENT_ID, authority: 'https://login.microsoftonline.com/organizations' },
+      cache: { cachePlugin: pluginFor(exoTokenCache) }
+    })
+  return exoPca
+}
+
+export class NeedsExoSignIn extends Error {
+  code = 'NEEDS_EXO_SIGNIN'
+}
+
+export async function exoToken(tenantId: string): Promise<{ token: string; expiresOn: number }> {
+  const t = tenants.get(tenantId)
+  if (!t) throw new Error(`Unknown tenant ${tenantId}`)
+  const account = await exoClient().getTokenCache().getAccountByHomeId(t.homeAccountId)
+  if (!account) throw new NeedsExoSignIn('Sign in to Exchange Online first')
+  try {
+    const r = await exoClient().acquireTokenSilent({ account, scopes: EXO_SCOPES, authority: `https://login.microsoftonline.com/${tenantId}` })
+    return { token: r.accessToken, expiresOn: r.expiresOn?.getTime() || Date.now() + 3000000 }
+  } catch (e) {
+    if (e instanceof InteractionRequiredAuthError) throw new NeedsExoSignIn(e.message)
+    throw e
+  }
+}
+
+export async function exoSignIn(tenantId: string) {
+  const t = tenants.get(tenantId)
+  if (!t) throw new Error(`Unknown tenant ${tenantId}`)
+  const r = await exoClient().acquireTokenInteractive({
+    scopes: EXO_SCOPES,
+    authority: `https://login.microsoftonline.com/${tenantId}`,
+    loginHint: t.username,
+    openBrowser: async (url) => {
+      await shell.openExternal(url)
+    },
+    successTemplate: page('Exchange Online: signed in / aangemeld', 'You can close this tab and return to M365 Admin Toolbox.'),
+    errorTemplate: page('Sign-in failed / Aanmelden mislukt', 'Return to M365 Admin Toolbox for details.')
+  })
+  if (r.account && r.account.homeAccountId !== t.homeAccountId) {
+    // Another account was picked in the browser; keep it out of this tenant's cache entry.
+    await exoClient().getTokenCache().removeAccount(r.account)
+    throw new Error(`Sign in as ${t.username}`)
+  }
 }
