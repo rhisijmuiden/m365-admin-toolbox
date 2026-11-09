@@ -111,6 +111,16 @@ const api = {
       return () => ipcRenderer.removeListener('teams:status', fn)
     }
   },
+  entra: Object.fromEntries(
+    [
+      'consent', 'apps', 'app', 'createApp', 'updateApp', 'deleteApp', 'setAppRoles', 'addSecret', 'removeCredential', 'pickCert', 'addCert',
+      'resource', 'permissions', 'grantConsent', 'removePermission', 'owners', 'addOwner', 'removeOwner', 'credentials', 'enterpriseApps',
+      'updateEnterpriseApp', 'assignments', 'assign', 'unassign', 'grants', 'revokeGrant', 'caPolicies', 'createCa', 'setCaState', 'deleteCa',
+      'resolve', 'locations', 'saveLocation', 'deleteLocation', 'roles', 'assignRole', 'removeRole', 'gdap', 'approvals', 'review',
+      'roleSettings', 'setRoleSettings', 'pimGroup', 'pimGroupAssign', 'pimGroupRemove', 'pimAudit', 'mfa', 'methods', 'deleteMethod',
+      'resetMfa', 'guests', 'invite', 'deleteGuests'
+    ].map((k) => [k, inv(`entra:${k}`)])
+  ),
   updateState: inv('update:state'),
   checkUpdate: inv('update:check'),
   downloadUpdate: inv('update:download'),

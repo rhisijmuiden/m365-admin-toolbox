@@ -49,7 +49,7 @@ type BatchReq = { id: string; url: string; method?: string; body?: unknown }
 type BatchRes = { id: string; status: number; body: { value?: unknown[]; error?: { message: string }; [k: string]: unknown }; headers?: Record<string, string> }
 
 /** Runs Graph requests through $batch, 20 per call and a few calls at a time, retrying throttled ones. */
-async function batch(tok: string, reqs: BatchReq[]): Promise<Map<string, BatchRes>> {
+export async function batch(tok: string, reqs: BatchReq[]): Promise<Map<string, BatchRes>> {
   const out = new Map<string, BatchRes>()
   const chunks: BatchReq[][] = []
   for (let i = 0; i < reqs.length; i += 20) chunks.push(reqs.slice(i, i + 20))

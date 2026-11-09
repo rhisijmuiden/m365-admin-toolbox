@@ -25,10 +25,23 @@ import type {
   TeamTemplate,
   TemplateChannel,
   Tenant,
-  TenantMode
+  TenantMode,
+  AppCredential,
+  AppRole,
+  AuthMethod,
+  CaDraft,
+  CaState,
+  CertFile,
+  GrantedPermission,
+  Invite,
+  NewAppReg,
+  PimApproval,
+  PimRoleSettings,
+  RoleAssign
 } from '@shared/types'
 import { consentScopes, exoSignIn, forget, homeTenantOf, signInInteractive, teamsSignIn } from './auth'
 import * as exo from './exchange'
+import * as entra from './entra'
 import * as exoPs from './exo'
 import * as graph from './graph'
 import * as pim from './pim'
@@ -246,6 +259,59 @@ function registerIpc() {
   handle('teams:assignNumber', (id: string, user: string, num: string, type: NumberType, loc?: string) => teams.assignNumber(id, user, num, type, loc))
   handle('teams:unassignNumber', (id: string, user: string, num: string, type: NumberType) => teams.unassignNumber(id, user, num, type))
   handle('teams:enterpriseVoice', (id: string, user: string, enabled: boolean) => teams.enterpriseVoice(id, user, enabled))
+  handle('entra:consent', (id: string) => consentScopes(id, entra.ENTRA_SCOPES))
+  handle('entra:apps', (id: string) => entra.listApps(id))
+  handle('entra:app', (id: string, appId: string) => entra.getApp(id, appId))
+  handle('entra:createApp', (id: string, n: NewAppReg) => entra.createApp(id, n))
+  handle('entra:updateApp', (id: string, appId: string, p: Parameters<typeof entra.updateApp>[2]) => entra.updateApp(id, appId, p))
+  handle('entra:deleteApp', (id: string, appId: string) => entra.deleteApp(id, appId))
+  handle('entra:setAppRoles', (id: string, appId: string, r: AppRole[]) => entra.setAppRoles(id, appId, r))
+  handle('entra:addSecret', (id: string, kind: 'app' | 'sp', obj: string, name: string, months: number) => entra.addSecret(id, kind, obj, name, months))
+  handle('entra:removeCredential', (id: string, kind: 'app' | 'sp', obj: string, c: Pick<AppCredential, 'keyId' | 'kind'>) => entra.removeCredential(id, kind, obj, c))
+  handle('entra:pickCert', () => entra.pickCert())
+  handle('entra:addCert', (id: string, appId: string, c: CertFile, name: string) => entra.addCert(id, appId, c, name))
+  handle('entra:resource', (id: string, appId: string) => entra.apiResource(id, appId))
+  handle('entra:permissions', (id: string, appId: string) => entra.appPermissions(id, appId))
+  handle('entra:grantConsent', (id: string, appId: string) => entra.grantConsent(id, appId))
+  handle('entra:removePermission', (id: string, appId: string, res: string, perm: string) => entra.removePermission(id, appId, res, perm))
+  handle('entra:owners', (id: string, kind: 'applications' | 'servicePrincipals', obj: string) => entra.owners(id, kind, obj))
+  handle('entra:addOwner', (id: string, kind: 'applications' | 'servicePrincipals', obj: string, user: string) => entra.addOwner(id, kind, obj, user))
+  handle('entra:removeOwner', (id: string, kind: 'applications' | 'servicePrincipals', obj: string, user: string) => entra.removeOwner(id, kind, obj, user))
+  handle('entra:credentials', (id: string) => entra.credentials(id))
+  handle('entra:enterpriseApps', (id: string) => entra.enterpriseApps(id))
+  handle('entra:updateEnterpriseApp', (id: string, sp: string, p: Parameters<typeof entra.updateEnterpriseApp>[2]) => entra.updateEnterpriseApp(id, sp, p))
+  handle('entra:assignments', (id: string, sp: string) => entra.assignments(id, sp))
+  handle('entra:assign', (id: string, sp: string, principal: string, role: string) => entra.assign(id, sp, principal, role))
+  handle('entra:unassign', (id: string, sp: string, a: string) => entra.unassign(id, sp, a))
+  handle('entra:grants', (id: string) => entra.grants(id))
+  handle('entra:revokeGrant', (id: string, sp: string, p: Pick<GrantedPermission, 'grantId' | 'kind' | 'value'>) => entra.revokeGrant(id, sp, p))
+  handle('entra:caPolicies', (id: string) => entra.caPolicies(id))
+  handle('entra:createCa', (id: string, d: CaDraft) => entra.createCa(id, d))
+  handle('entra:setCaState', (id: string, p: string, s: CaState) => entra.setCaState(id, p, s))
+  handle('entra:deleteCa', (id: string, p: string) => entra.deleteCa(id, p))
+  handle('entra:resolve', (id: string, ids: string[]) => entra.resolveIds(id, ids))
+  handle('entra:locations', (id: string) => entra.namedLocations(id))
+  handle('entra:saveLocation', (id: string, l: Parameters<typeof entra.saveLocation>[1]) => entra.saveLocation(id, l))
+  handle('entra:deleteLocation', (id: string, l: string) => entra.deleteLocation(id, l))
+  handle('entra:roles', (id: string) => entra.roles(id))
+  handle('entra:assignRole', (id: string, a: RoleAssign) => entra.assignRole(id, a))
+  handle('entra:removeRole', (id: string, m: Parameters<typeof entra.removeRole>[1]) => entra.removeRole(id, m))
+  handle('entra:gdap', (id: string) => entra.gdap(id))
+  handle('entra:approvals', (id: string) => entra.approvals(id))
+  handle('entra:review', (id: string, a: Pick<PimApproval, 'approvalId' | 'kind'>, ok: boolean, why: string) => entra.review(id, a, ok, why))
+  handle('entra:roleSettings', (id: string, role: string) => entra.roleSettings(id, role))
+  handle('entra:setRoleSettings', (id: string, role: string, s: Omit<PimRoleSettings, 'policyId'>) => entra.setRoleSettings(id, role, s))
+  handle('entra:pimGroup', (id: string, g: string) => entra.pimGroup(id, g))
+  handle('entra:pimGroupAssign', (id: string, g: string, a: Parameters<typeof entra.pimGroupAssign>[2]) => entra.pimGroupAssign(id, g, a))
+  handle('entra:pimGroupRemove', (id: string, g: string, e: Parameters<typeof entra.pimGroupRemove>[2]) => entra.pimGroupRemove(id, g, e))
+  handle('entra:pimAudit', (id: string, days: number) => entra.pimAudit(id, days))
+  handle('entra:mfa', (id: string) => entra.mfaReport(id))
+  handle('entra:methods', (id: string, user: string) => entra.methods(id, user))
+  handle('entra:deleteMethod', (id: string, user: string, m: Pick<AuthMethod, 'id' | 'type'>) => entra.deleteMethod(id, user, m))
+  handle('entra:resetMfa', (id: string, user: string, revoke: boolean) => entra.resetMfa(id, user, revoke))
+  handle('entra:guests', (id: string) => entra.guestUsers(id))
+  handle('entra:invite', (id: string, i: Invite) => entra.invite(id, i))
+  handle('entra:deleteGuests', (id: string, ids: string[]) => entra.deleteGuests(id, ids))
   handle('update:state', () => updateState())
   handle('update:check', () => checkForUpdates())
   handle('update:download', () => downloadUpdate())

@@ -189,3 +189,8 @@ details summary { cursor: pointer; font-size: 12.5px; font-weight: 500; color: v
 .flag.external, .flag.delete, .flag.hide { background: var(--bad-soft); color: var(--bad); }
 tr.muted td { opacity: .55; }
 .fld > .seg, .m-b > .seg { justify-self: start; }
+
+/* Entra (phase 4) */
+.fld, .row2 > * { min-width: 0; }
+.fld > select, .fld > input { min-width: 0; max-width: 100%; }
+.modal .seg { flex-wrap: wrap; }
