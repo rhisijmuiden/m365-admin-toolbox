@@ -101,3 +101,12 @@ export function genPassword(len = 14) {
   }
   return chars.join('')
 }
+
+/** A search text for the next list screen that opens, set by the cross-tenant search. */
+let nextSearch = ''
+export const setNextSearch = (q: string) => (nextSearch = q)
+export function takeSearch() {
+  const q = nextSearch
+  nextSearch = ''
+  return q
+}

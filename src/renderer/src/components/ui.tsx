@@ -75,6 +75,12 @@ export const Icon = {
       <path d="M9 12l2 2 4-4" />
     </svg>
   ),
+  cross: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3.5 9h17M3.5 15h17M12 3c-2.8 3-2.8 15 0 18M12 3c2.8 3 2.8 15 0 18" />
+    </svg>
+  ),
   security: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <rect x="4" y="10" width="16" height="11" rx="2" />

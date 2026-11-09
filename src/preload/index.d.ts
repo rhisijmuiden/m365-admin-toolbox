@@ -102,7 +102,10 @@ import type {
   SignIn,
   TraceEvent,
   TraceFilter,
-  TraceRow
+  TraceRow,
+  ActivityEntry,
+  MemberGroup,
+  SearchHit
 } from '../shared/types'
 
 type R<T> = Promise<Result<T>>
@@ -136,6 +139,8 @@ export interface Api {
   teams: TeamsApi
   entra: EntraApi
   sec: SecApi
+  cross: CrossApi
+  activity: { list(tenantId?: string): R<ActivityEntry[]>; export(tenantId?: string): R<string | null> }
   updateState(): R<UpdateState>
   checkUpdate(): R<UpdateState>
   downloadUpdate(): R<void>
@@ -318,6 +323,17 @@ export interface SecApi {
   analyzed(tenantId: string, s: RetractSpec): R<AnalyzedEmail[]>
   remediate(tenantId: string, emails: Pick<AnalyzedEmail, 'networkMessageId' | 'recipient'>[], action: DefenderAction, name: string): R<void>
   onStatus(cb: (s: { tenantId: string; phase: ExoPhase }) => void): () => void
+}
+
+type GroupRef = Pick<Group, 'id' | 'displayName' | 'kind' | 'mail'>
+
+export interface CrossApi {
+  search(tenantId: string, q: string): R<SearchHit[]>
+  userGroups(tenantId: string, user: string): R<MemberGroup[]>
+  addToGroups(tenantId: string, userId: string, upn: string, groups: GroupRef[]): Failed
+  removeFromGroups(tenantId: string, userId: string, upn: string, groups: GroupRef[]): Failed
+  removeLicenses(tenantId: string, user: string): R<{ removed: number }>
+  findUser(tenantId: string, user: string): R<{ id: string; displayName: string; userPrincipalName: string; skuIds: string[] }>
 }
 
 declare global {

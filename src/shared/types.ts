@@ -1049,3 +1049,35 @@ export interface AnalyzedEmail {
 }
 
 export type DefenderAction = 'softDelete' | 'hardDelete' | 'moveToJunk' | 'moveToDeletedItems'
+
+// Phase 6: across tenants
+
+export type SearchKind = 'user' | 'guest' | 'group' | 'app' | 'appReg'
+
+export interface SearchHit {
+  kind: SearchKind
+  id: string
+  name: string
+  /** UPN, mail address or app id. */
+  sub: string | null
+  /** Group kind, department or publisher. */
+  detail: string | null
+  enabled: boolean | null
+  /** The alias that matched, when it is not the primary address. */
+  matched: string | null
+}
+
+export interface MemberGroup extends Group {
+  /** Dynamic groups and groups synced from on-premises can't be changed here. */
+  readOnly: boolean
+}
+
+export interface ActivityEntry {
+  at: string
+  tenantId: string
+  tenantName: string
+  action: string
+  details: string
+  ok: boolean
+  error?: string
+}
