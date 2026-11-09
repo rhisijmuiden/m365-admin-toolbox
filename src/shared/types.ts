@@ -301,3 +301,172 @@ export interface MailFlow {
   rules: { name: string; state: string; mode: string; priority: number; description: string; modified: string | null }[]
   domains: { name: string; type: string; isDefault: boolean }[]
 }
+
+// ---------- Teams (phase 3) ----------
+
+export interface TeamPerson {
+  id: string
+  displayName: string
+  upn: string
+}
+
+export interface Team {
+  id: string
+  displayName: string
+  description: string | null
+  visibility: 'private' | 'public' | 'hiddenMembership' | string
+  mail: string | null
+  created: string | null
+  owners: TeamPerson[]
+  /** null when the team's settings could not be read. */
+  archived: boolean | null
+}
+
+export interface TeamActivity {
+  teamId: string
+  lastActivity: string | null
+  activeUsers: number | null
+  guests: number | null
+  messages: number | null
+}
+
+export interface TeamActivityReport {
+  rows: TeamActivity[]
+  reportDate: string | null
+  /** Why no report rows are available: no consent, names concealed, no access, other error. */
+  issue?: 'consent' | 'concealed' | 'denied' | 'error'
+}
+
+export interface TeamMember {
+  /** conversationMember id, used to change or remove the membership. */
+  id: string
+  userId: string
+  displayName: string
+  email: string | null
+  roles: string[]
+}
+
+export type ChannelType = 'standard' | 'private' | 'shared'
+
+export interface TeamChannel {
+  id: string
+  displayName: string
+  description: string | null
+  type: ChannelType
+  created: string | null
+}
+
+export interface TemplateChannel {
+  name: string
+  description?: string
+  type: ChannelType
+}
+
+export interface TeamTemplate {
+  id: string
+  name: string
+  description: string
+  visibility: 'private' | 'public'
+  channels: TemplateChannel[]
+}
+
+export interface NewTeam {
+  displayName: string
+  description: string
+  visibility: 'private' | 'public'
+  /** User ids or UPNs. At least one owner is required. */
+  owners: string[]
+  members: string[]
+  channels: TemplateChannel[]
+}
+
+export interface NewTeamResult {
+  team: Team
+  /** Steps after the team itself (extra members, private and shared channels) that failed. */
+  failed: { what: string; error: string }[]
+}
+
+export interface TeamGuest {
+  teamId: string
+  teamName: string
+  userId: string
+  displayName: string
+  mail: string | null
+  upn: string
+  created: string | null
+  state: string | null
+  lastSignIn: string | null
+}
+
+export type PolicyType = 'TeamsMeetingPolicy' | 'TeamsMessagingPolicy' | 'TeamsAppSetupPolicy' | 'TeamsCallingPolicy' | 'OnlineVoiceRoutingPolicy'
+
+export interface CsUser {
+  id: string
+  upn: string
+  displayName: string
+  enabled: boolean
+  /** Directly assigned policy per type; null means the Global policy or one inherited from a group. */
+  policies: Partial<Record<PolicyType, string | null>>
+  lineUri: string | null
+  enterpriseVoice: boolean
+  phoneSystem: boolean
+}
+
+export interface GroupPolicyAssignment {
+  groupId: string
+  type: PolicyType
+  policy: string | null
+  rank: number
+}
+
+export interface TeamsPolicies {
+  catalog: Record<PolicyType, { name: string; description: string; isGlobal: boolean }[]>
+  users: CsUser[]
+  groups: GroupPolicyAssignment[]
+}
+
+export interface TeamsFederation {
+  allowFederated: boolean
+  allowAll: boolean
+  allowed: string[]
+  blocked: string[]
+  consumer: boolean
+  consumerInbound: boolean
+}
+
+export interface TeamsGuestSettings {
+  allowGuest: boolean
+  privateCalling: boolean
+  ipVideo: boolean
+  meetNow: boolean
+  screenSharing: string
+  chat: boolean
+  editMessages: boolean
+  deleteMessages: boolean
+  giphy: boolean
+}
+
+export interface TeamsAccess {
+  federation: TeamsFederation
+  guest: TeamsGuestSettings
+}
+
+export type NumberType = 'CallingPlan' | 'DirectRouting' | 'OperatorConnect'
+
+export interface PhoneNumber {
+  number: string
+  type: string
+  activation: string
+  capability: string[]
+  /** Object id of the user or resource account, null when free. */
+  assignedTo: string | null
+  status: string
+  city: string | null
+}
+
+export interface TeamsPhone {
+  numbers: PhoneNumber[]
+  users: CsUser[]
+  calling: string[]
+  routing: string[]
+}

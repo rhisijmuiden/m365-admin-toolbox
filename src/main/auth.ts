@@ -6,7 +6,7 @@ import {
   type AuthenticationResult,
   type ICachePlugin
 } from '@azure/msal-node'
-import { exoTokenCache, settings, tenants, tokenCache } from './store'
+import { exoTokenCache, settings, teamsTokenCache, tenants, tokenCache } from './store'
 
 export const SCOPES = [
   'User.ReadWrite.All',
@@ -147,8 +147,10 @@ export async function forget(homeAccountId: string) {
   if (tenants.list().some((t) => t.homeAccountId === homeAccountId)) return
   const account = await accountFor(homeAccountId)
   if (account) await client().getTokenCache().removeAccount(account)
-  const exoAccount = await exoClient().getTokenCache().getAccountByHomeId(homeAccountId)
-  if (exoAccount) await exoClient().getTokenCache().removeAccount(exoAccount)
+  for (const c of [exoClient(), teamsClient()]) {
+    const a = await c.getTokenCache().getAccountByHomeId(homeAccountId)
+    if (a) await c.getTokenCache().removeAccount(a)
+  }
 }
 
 export class NeedsConsent extends Error {
@@ -187,57 +189,83 @@ export async function consentScopes(tenantId: string, scopes: string[]) {
 }
 
 /*
- * Exchange Online: Connect-ExchangeOnline -AccessToken needs a token for outlook.office365.com issued to the
- * Exchange Online PowerShell app itself. It is a separate public client with its own consent and cache;
- * the user signs in once per tenant (usually SSO in the browser) and refresh tokens do the rest.
+ * PowerShell modules: Connect-ExchangeOnline and Connect-MicrosoftTeams take access tokens issued to the
+ * module's own first-party app, because a Microsoft app only gets tokens for the Microsoft APIs it is
+ * pre-authorized for. Each is a separate public client with its own consent and cache; the user signs in
+ * once per tenant (usually SSO in the browser) and refresh tokens do the rest.
  */
-export const EXO_CLIENT_ID = 'fb78d390-0c51-40cd-8e17-fdbfab77341b'
-const EXO_SCOPES = ['https://outlook.office365.com/.default']
-
-let exoPca: PublicClientApplication | null = null
-function exoClient(): PublicClientApplication {
-  if (!exoPca)
-    exoPca = new PublicClientApplication({
-      auth: { clientId: EXO_CLIENT_ID, authority: 'https://login.microsoftonline.com/organizations' },
-      cache: { cachePlugin: pluginFor(exoTokenCache) }
-    })
-  return exoPca
+function moduleClient(clientId: string, cache: typeof tokenCache) {
+  let pca: PublicClientApplication | null = null
+  return () => {
+    if (!pca)
+      pca = new PublicClientApplication({
+        auth: { clientId, authority: 'https://login.microsoftonline.com/organizations' },
+        cache: { cachePlugin: pluginFor(cache) }
+      })
+    return pca
+  }
 }
 
-export class NeedsExoSignIn extends Error {
-  code = 'NEEDS_EXO_SIGNIN'
-}
-
-export async function exoToken(tenantId: string): Promise<{ token: string; expiresOn: number }> {
+async function moduleToken(c: PublicClientApplication, tenantId: string, scopes: string[], Err: new (m: string) => Error) {
   const t = tenants.get(tenantId)
   if (!t) throw new Error(`Unknown tenant ${tenantId}`)
-  const account = await exoClient().getTokenCache().getAccountByHomeId(t.homeAccountId)
-  if (!account) throw new NeedsExoSignIn('Sign in to Exchange Online first')
+  const account = await c.getTokenCache().getAccountByHomeId(t.homeAccountId)
+  if (!account) throw new Err('Sign in first')
   try {
-    const r = await exoClient().acquireTokenSilent({ account, scopes: EXO_SCOPES, authority: `https://login.microsoftonline.com/${tenantId}` })
+    const r = await c.acquireTokenSilent({ account, scopes, authority: `https://login.microsoftonline.com/${tenantId}` })
     return { token: r.accessToken, expiresOn: r.expiresOn?.getTime() || Date.now() + 3000000 }
   } catch (e) {
-    if (e instanceof InteractionRequiredAuthError) throw new NeedsExoSignIn(e.message)
+    if (e instanceof InteractionRequiredAuthError) throw new Err(e.message)
     throw e
   }
 }
 
-export async function exoSignIn(tenantId: string) {
+async function moduleSignIn(c: PublicClientApplication, tenantId: string, scopes: string[], extra: string[], title: string) {
   const t = tenants.get(tenantId)
   if (!t) throw new Error(`Unknown tenant ${tenantId}`)
-  const r = await exoClient().acquireTokenInteractive({
-    scopes: EXO_SCOPES,
+  const r = await c.acquireTokenInteractive({
+    scopes,
+    extraScopesToConsent: extra.length ? extra : undefined,
     authority: `https://login.microsoftonline.com/${tenantId}`,
     loginHint: t.username,
     openBrowser: async (url) => {
       await shell.openExternal(url)
     },
-    successTemplate: page('Exchange Online: signed in / aangemeld', 'You can close this tab and return to M365 Admin Toolbox.'),
+    successTemplate: page(`${title}: signed in / aangemeld`, 'You can close this tab and return to M365 Admin Toolbox.'),
     errorTemplate: page('Sign-in failed / Aanmelden mislukt', 'Return to M365 Admin Toolbox for details.')
   })
   if (r.account && r.account.homeAccountId !== t.homeAccountId) {
     // Another account was picked in the browser; keep it out of this tenant's cache entry.
-    await exoClient().getTokenCache().removeAccount(r.account)
+    await c.getTokenCache().removeAccount(r.account)
     throw new Error(`Sign in as ${t.username}`)
   }
 }
+
+export const EXO_CLIENT_ID = 'fb78d390-0c51-40cd-8e17-fdbfab77341b'
+const EXO_SCOPES = ['https://outlook.office365.com/.default']
+const exoClient = moduleClient(EXO_CLIENT_ID, exoTokenCache)
+
+export class NeedsExoSignIn extends Error {
+  code = 'NEEDS_EXO_SIGNIN'
+}
+
+export const exoToken = (tenantId: string) => moduleToken(exoClient(), tenantId, EXO_SCOPES, NeedsExoSignIn)
+export const exoSignIn = (tenantId: string) => moduleSignIn(exoClient(), tenantId, EXO_SCOPES, [], 'Exchange Online')
+
+/** Microsoft Teams PowerShell connects with a Graph token and one for the Skype and Teams Tenant Admin API. */
+export const TEAMS_CLIENT_ID = '12128f48-ec9e-42f0-b203-ea49fb6af367'
+const TEAMS_ADMIN_SCOPES = ['48ac35b8-9aa8-4d74-927d-1f4a14a0b239/.default']
+const TEAMS_GRAPH_SCOPES = ['https://graph.microsoft.com/.default']
+const teamsClient = moduleClient(TEAMS_CLIENT_ID, teamsTokenCache)
+
+export class NeedsTeamsSignIn extends Error {
+  code = 'NEEDS_TEAMS_SIGNIN'
+}
+
+export async function teamsTokens(tenantId: string) {
+  const admin = await moduleToken(teamsClient(), tenantId, TEAMS_ADMIN_SCOPES, NeedsTeamsSignIn)
+  const graph = await moduleToken(teamsClient(), tenantId, TEAMS_GRAPH_SCOPES, NeedsTeamsSignIn)
+  return { admin: admin.token, graph: graph.token }
+}
+
+export const teamsSignIn = (tenantId: string) => moduleSignIn(teamsClient(), tenantId, TEAMS_ADMIN_SCOPES, TEAMS_GRAPH_SCOPES, 'Microsoft Teams')

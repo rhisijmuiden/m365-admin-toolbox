@@ -1,7 +1,7 @@
 import { app, safeStorage } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
-import type { Settings, Tenant } from '@shared/types'
+import type { Settings, TeamTemplate, Tenant } from '@shared/types'
 
 /** Microsoft Graph Command Line Tools, a first-party public client that supports loopback redirects. */
 export const DEFAULT_CLIENT_ID = '14d82eec-204b-4c2f-b7e8-296a70dab67e'
@@ -86,5 +86,30 @@ function encryptedFile(name: string) {
 export const tokenCache = encryptedFile('msal-cache.bin')
 /** Separate cache for the Exchange Online PowerShell client, so two MSAL clients never write one file. */
 export const exoTokenCache = encryptedFile('msal-exo-cache.bin')
+export const teamsTokenCache = encryptedFile('msal-teams-cache.bin')
 
 export const userDataDir = dir
+
+/** Team templates, shared by all tenants. The built-in "Project" template is there until someone removes it. */
+const DEFAULT_TEMPLATES: TeamTemplate[] = [
+  {
+    id: 'project',
+    name: 'Project',
+    description: 'Project team with fixed channels and a private channel for the project lead',
+    visibility: 'private',
+    channels: [
+      { name: 'Planning', type: 'standard' },
+      { name: 'Documenten', type: 'standard' },
+      { name: 'Overleg', type: 'standard' },
+      { name: 'Projectleiding', type: 'private' }
+    ]
+  }
+]
+
+export const teamTemplates = {
+  list: (): TeamTemplate[] => readJson<{ items: TeamTemplate[] }>('team-templates.json', { items: DEFAULT_TEMPLATES }).items,
+  save(items: TeamTemplate[]) {
+    writeJson('team-templates.json', { items })
+    return items
+  }
+}
