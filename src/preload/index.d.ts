@@ -30,7 +30,25 @@ import type {
   Tenant,
   TenantMode,
   UpdateState,
-  User
+  User,
+  CsUser,
+  GroupPolicyAssignment,
+  NewTeam,
+  NewTeamResult,
+  NumberType,
+  PolicyType,
+  Team,
+  TeamActivityReport,
+  TeamChannel,
+  TeamGuest,
+  TeamMember,
+  TeamsAccess,
+  TeamsFederation,
+  TeamsGuestSettings,
+  TeamsPhone,
+  TeamsPolicies,
+  TeamTemplate,
+  TemplateChannel
 } from '../shared/types'
 
 type R<T> = Promise<Result<T>>
@@ -61,6 +79,7 @@ export interface Api {
   pimCancel(tenantId: string, kind: PimKind, requestId: string): R<void>
   onNav(cb: (n: { tenantId: string; view: string }) => void): () => void
   exo: ExoApi
+  teams: TeamsApi
   updateState(): R<UpdateState>
   checkUpdate(): R<UpdateState>
   downloadUpdate(): R<void>
@@ -108,6 +127,46 @@ export interface ExoApi {
   inboxRules(tenantId: string): R<InboxRule[]>
   setInboxRule(tenantId: string, mailboxId: string, ruleId: string, action: 'disable' | 'enable' | 'remove'): R<void>
   mailFlow(tenantId: string): R<MailFlow>
+  onStatus(cb: (s: { tenantId: string; phase: ExoPhase }) => void): () => void
+}
+
+export interface TeamsApi {
+  consent(tenantId: string): R<void>
+  consentReports(tenantId: string): R<void>
+  signIn(tenantId: string): R<void>
+  list(tenantId: string): R<Team[]>
+  get(tenantId: string, teamId: string): R<Team>
+  activity(tenantId: string, teamIds: string[]): R<TeamActivityReport>
+  create(tenantId: string, t: NewTeam): R<NewTeamResult>
+  update(tenantId: string, teamId: string, p: { displayName?: string; description?: string; visibility?: 'private' | 'public' }): R<Team>
+  archive(tenantId: string, teamId: string, archived: boolean, siteReadOnly?: boolean): R<Team>
+  members(tenantId: string, teamId: string): R<TeamMember[]>
+  addMember(tenantId: string, teamId: string, user: string, owner: boolean): R<TeamMember[]>
+  setMemberRole(tenantId: string, teamId: string, membershipId: string, owner: boolean): R<TeamMember[]>
+  removeMember(tenantId: string, teamId: string, membershipId: string): R<TeamMember[]>
+  channels(tenantId: string, teamId: string): R<TeamChannel[]>
+  addChannel(tenantId: string, teamId: string, c: TemplateChannel, owners: string[]): R<{ channel: TeamChannel; failed: { what: string; error: string }[] }>
+  removeChannel(tenantId: string, teamId: string, channelId: string): R<void>
+  channelMembers(tenantId: string, teamId: string, channelId: string): R<TeamMember[]>
+  addChannelMember(tenantId: string, teamId: string, channelId: string, user: string, owner: boolean): R<TeamMember[]>
+  setChannelMemberRole(tenantId: string, teamId: string, channelId: string, membershipId: string, owner: boolean): R<TeamMember[]>
+  removeChannelMember(tenantId: string, teamId: string, channelId: string, membershipId: string): R<TeamMember[]>
+  guests(tenantId: string, teams: { id: string; displayName: string }[]): R<TeamGuest[]>
+  removeGuest(tenantId: string, teamId: string, userId: string): R<void>
+  deleteGuest(tenantId: string, userId: string): R<void>
+  templates(): R<TeamTemplate[]>
+  saveTemplates(items: TeamTemplate[]): R<TeamTemplate[]>
+  policies(tenantId: string): R<TeamsPolicies>
+  grantUsers(tenantId: string, type: PolicyType, policy: string | null, users: string[]): R<{ users: CsUser[]; failed: { user: string; error: string }[] }>
+  grantGroup(tenantId: string, a: GroupPolicyAssignment): R<void>
+  removeGroupPolicy(tenantId: string, type: PolicyType, groupId: string): R<void>
+  access(tenantId: string): R<TeamsAccess>
+  setFederation(tenantId: string, f: TeamsFederation): R<TeamsAccess>
+  setGuest(tenantId: string, g: Partial<TeamsGuestSettings>): R<TeamsAccess>
+  phone(tenantId: string): R<TeamsPhone>
+  assignNumber(tenantId: string, user: string, number: string, type: NumberType, locationId?: string): R<CsUser>
+  unassignNumber(tenantId: string, user: string, number: string, type: NumberType): R<CsUser>
+  enterpriseVoice(tenantId: string, user: string, enabled: boolean): R<CsUser>
   onStatus(cb: (s: { tenantId: string; phase: ExoPhase }) => void): () => void
 }
 

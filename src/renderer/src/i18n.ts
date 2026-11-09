@@ -1,8 +1,10 @@
 import type { Lang } from '@shared/types'
 import { exEn, exNl } from './i18n-exchange'
+import { tmEn, tmNl } from './i18n-teams'
 
 const en = {
   ...exEn,
+  ...tmEn,
   appName: 'M365 Admin Toolbox',
   appSub: 'Multi-tenant admin',
   searchTenants: 'Search tenants',
@@ -225,6 +227,7 @@ type Dict = typeof en
 
 const nl: Dict = {
   ...exNl,
+  ...tmNl,
   appName: 'M365 Admin Toolbox',
   appSub: 'Multi-tenant beheer',
   searchTenants: 'Tenants zoeken',

@@ -14,6 +14,12 @@ import { DistListsView } from './views/DistLists'
 import { AddressesView } from './views/Addresses'
 import { InboxRulesView } from './views/InboxRules'
 import { MailFlowView } from './views/MailFlow'
+import { TeamsView } from './views/Teams'
+import { TeamGuestsView } from './views/TeamGuests'
+import { TeamPoliciesView } from './views/TeamPolicies'
+import { TeamAccessView } from './views/TeamAccess'
+import { TeamPhoneView } from './views/TeamPhone'
+import { TeamTemplatesView } from './views/TeamTemplates'
 import logoDark from './assets/rhis-logo.svg'
 import logoLight from './assets/rhis-logo-wit.svg'
 
@@ -29,13 +35,19 @@ type View =
   | 'aliases'
   | 'inboxRules'
   | 'mailflow'
-  | 'teamsList' | 'policies' | 'apps' | 'ca' | 'roles'
+  | 'teamsList'
+  | 'teamGuests'
+  | 'policies'
+  | 'teamAccess'
+  | 'teamPhone'
+  | 'teamTemplates'
+  | 'apps' | 'ca' | 'roles'
 
 const NAV: { id: 'access' | 'm365' | 'exchange' | 'teams' | 'entra'; bg: string; items: [View, number][] }[] = [
   { id: 'access', bg: 'linear-gradient(135deg,#ff8a6b,#e0503c)', items: [['pim', 0]] },
   { id: 'm365', bg: 'linear-gradient(135deg,#ea5a2b,#c2381f)', items: [['users', 0], ['licenses', 0], ['groups', 0]] },
   { id: 'exchange', bg: 'linear-gradient(135deg,#2a8be0,#0a5aa6)', items: [['mailboxes', 0], ['shared', 0], ['rooms', 0], ['distLists', 0], ['aliases', 0], ['inboxRules', 0], ['mailflow', 0]] },
-  { id: 'teams', bg: 'linear-gradient(135deg,#7377dd,#4b4fb3)', items: [['teamsList', 3], ['policies', 3]] },
+  { id: 'teams', bg: 'linear-gradient(135deg,#7377dd,#4b4fb3)', items: [['teamsList', 0], ['teamGuests', 0], ['policies', 0], ['teamAccess', 0], ['teamPhone', 0], ['teamTemplates', 0]] },
   { id: 'entra', bg: 'linear-gradient(135deg,#17a6a0,#0a6f75)', items: [['apps', 4], ['ca', 4], ['roles', 4]] }
 ]
 
@@ -222,6 +234,18 @@ export function App() {
             <InboxRulesView key={tenant.tenantId + epoch} />
           ) : view === 'mailflow' ? (
             <MailFlowView key={tenant.tenantId + epoch} />
+          ) : view === 'teamsList' ? (
+            <TeamsView key={tenant.tenantId + epoch} />
+          ) : view === 'teamGuests' ? (
+            <TeamGuestsView key={tenant.tenantId + epoch} />
+          ) : view === 'policies' ? (
+            <TeamPoliciesView key={tenant.tenantId + epoch} />
+          ) : view === 'teamAccess' ? (
+            <TeamAccessView key={tenant.tenantId + epoch} />
+          ) : view === 'teamPhone' ? (
+            <TeamPhoneView key={tenant.tenantId + epoch} />
+          ) : view === 'teamTemplates' ? (
+            <TeamTemplatesView />
           ) : (
             <GroupsView key={tenant.tenantId + epoch} />
           )}

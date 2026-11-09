@@ -16,16 +16,26 @@ import type {
   Recipient,
   Result,
   Settings,
+  GroupPolicyAssignment,
+  NewTeam,
+  NumberType,
+  PolicyType,
+  TeamsFederation,
+  TeamsGuestSettings,
+  TeamTemplate,
+  TemplateChannel,
   Tenant,
   TenantMode
 } from '@shared/types'
-import { consentScopes, exoSignIn, forget, homeTenantOf, signInInteractive } from './auth'
+import { consentScopes, exoSignIn, forget, homeTenantOf, signInInteractive, teamsSignIn } from './auth'
 import * as exo from './exchange'
-import { closeAll, closeSession, ensureModule, setExoWindow } from './exo'
+import * as exoPs from './exo'
 import * as graph from './graph'
 import * as pim from './pim'
 import { initPimWatch } from './pimWatch'
-import { settings, tenants } from './store'
+import { setPsWindow } from './ps'
+import { settings, teamTemplates, tenants } from './store'
+import * as teams from './teams'
 import { applyChannel, checkForUpdates, downloadUpdate, initUpdater, installUpdate, updateState } from './updater'
 
 const REPO = 'rhisijmuiden/m365-admin-toolbox'
@@ -64,7 +74,7 @@ function createWindow() {
   else win.loadFile(join(__dirname, '../renderer/index.html'))
   initUpdater(win, s.channel)
   initPimWatch(win)
-  setExoWindow(win)
+  setPsWindow(win)
 }
 
 /** Wraps a handler so errors reach the renderer as a Result instead of a rejected invoke. */
@@ -142,7 +152,8 @@ function registerIpc() {
   handle('tenants:remove', async (id: string) => {
     const t = tenants.get(id)
     tenants.remove(id)
-    closeSession(id)
+    exoPs.closeSession(id)
+    teams.closeSession(id)
     if (t) await forget(t.homeAccountId)
     return tenants.list()
   })
@@ -195,6 +206,46 @@ function registerIpc() {
   handle('exo:inboxRules', (id: string) => exo.inboxRules(id))
   handle('exo:setInboxRule', (id: string, mbx: string, rule: string, action: 'disable' | 'enable' | 'remove') => exo.setInboxRule(id, mbx, rule, action))
   handle('exo:mailFlow', (id: string) => exo.mailFlow(id))
+  handle('teams:consent', (id: string) => consentScopes(id, teams.TEAMS_SCOPES))
+  handle('teams:consentReports', (id: string) => consentScopes(id, exo.REPORT_SCOPES))
+  handle('teams:signIn', (id: string) => teamsSignIn(id))
+  handle('teams:list', (id: string) => teams.listTeams(id))
+  handle('teams:get', (id: string, teamId: string) => teams.team(id, teamId))
+  handle('teams:activity', (id: string, teamIds: string[]) => teams.teamActivity(id, teamIds))
+  handle('teams:create', (id: string, t: NewTeam) => teams.createTeam(id, t))
+  handle('teams:update', (id: string, teamId: string, p: Parameters<typeof teams.updateTeam>[2]) => teams.updateTeam(id, teamId, p))
+  handle('teams:archive', (id: string, teamId: string, archived: boolean, siteReadOnly?: boolean) => teams.archive(id, teamId, archived, siteReadOnly))
+  handle('teams:members', (id: string, teamId: string) => teams.members(id, teamId))
+  handle('teams:addMember', (id: string, teamId: string, user: string, owner: boolean) => teams.addMember(id, teamId, user, owner))
+  handle('teams:setMemberRole', (id: string, teamId: string, mid: string, owner: boolean) => teams.setMemberRole(id, teamId, mid, owner))
+  handle('teams:removeMember', (id: string, teamId: string, mid: string) => teams.removeMember(id, teamId, mid))
+  handle('teams:channels', (id: string, teamId: string) => teams.channels(id, teamId))
+  handle('teams:addChannel', (id: string, teamId: string, c: TemplateChannel, owners: string[]) => teams.addChannel(id, teamId, c, owners))
+  handle('teams:removeChannel', (id: string, teamId: string, cid: string) => teams.removeChannel(id, teamId, cid))
+  handle('teams:channelMembers', (id: string, teamId: string, cid: string) => teams.channelMembers(id, teamId, cid))
+  handle('teams:addChannelMember', (id: string, teamId: string, cid: string, user: string, owner: boolean) =>
+    teams.addChannelMember(id, teamId, cid, user, owner)
+  )
+  handle('teams:setChannelMemberRole', (id: string, teamId: string, cid: string, mid: string, owner: boolean) =>
+    teams.setChannelMemberRole(id, teamId, cid, mid, owner)
+  )
+  handle('teams:removeChannelMember', (id: string, teamId: string, cid: string, mid: string) => teams.removeChannelMember(id, teamId, cid, mid))
+  handle('teams:guests', (id: string, list: { id: string; displayName: string }[]) => teams.guests(id, list))
+  handle('teams:removeGuest', (id: string, teamId: string, userId: string) => teams.removeGuest(id, teamId, userId))
+  handle('teams:deleteGuest', (id: string, userId: string) => teams.deleteGuest(id, userId))
+  handle('teams:templates', () => teamTemplates.list())
+  handle('teams:saveTemplates', (items: TeamTemplate[]) => teamTemplates.save(items))
+  handle('teams:policies', (id: string) => teams.policies(id))
+  handle('teams:grantUsers', (id: string, type: PolicyType, policy: string | null, users: string[]) => teams.grantUsers(id, type, policy, users))
+  handle('teams:grantGroup', (id: string, a: GroupPolicyAssignment) => teams.grantGroup(id, a))
+  handle('teams:removeGroupPolicy', (id: string, type: PolicyType, groupId: string) => teams.removeGroupPolicy(id, type, groupId))
+  handle('teams:access', (id: string) => teams.access(id))
+  handle('teams:setFederation', (id: string, f: TeamsFederation) => teams.setFederation(id, f))
+  handle('teams:setGuest', (id: string, g: Partial<TeamsGuestSettings>) => teams.setGuest(id, g))
+  handle('teams:phone', (id: string) => teams.phone(id))
+  handle('teams:assignNumber', (id: string, user: string, num: string, type: NumberType, loc?: string) => teams.assignNumber(id, user, num, type, loc))
+  handle('teams:unassignNumber', (id: string, user: string, num: string, type: NumberType) => teams.unassignNumber(id, user, num, type))
+  handle('teams:enterpriseVoice', (id: string, user: string, enabled: boolean) => teams.enterpriseVoice(id, user, enabled))
   handle('update:state', () => updateState())
   handle('update:check', () => checkForUpdates())
   handle('update:download', () => downloadUpdate())
@@ -217,8 +268,8 @@ else {
     registerIpc()
     createWindow()
     // Check or install the Exchange module in the background so the first Exchange screen opens faster.
-    ensureModule().catch(() => undefined)
+    exoPs.ensureModule().catch(() => undefined)
   })
   app.on('window-all-closed', () => app.quit())
-  app.on('will-quit', () => closeAll())
+  app.on('will-quit', () => (exoPs.closeAll(), teams.closeAll()))
 }
