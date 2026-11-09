@@ -1,7 +1,7 @@
 {
   "name": "m365-admin-toolbox",
   "productName": "M365 Admin Toolbox",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Multi-tenant Microsoft 365 admin toolbox by RHIS",
   "author": "RHIS",
   "license": "GPL-3.0",

@@ -798,3 +798,254 @@ export interface Invite {
   message?: string
   send: boolean
 }
+
+// ---------- Security (phase 5) ----------
+
+export type QuarantineType = 'Spam' | 'HighConfSpam' | 'Phish' | 'HighConfPhish' | 'Bulk' | 'Malware' | 'TransportRule' | 'SPOMalware' | 'DataLossPrevention'
+
+export interface QuarantineMsg {
+  id: string
+  received: string | null
+  sender: string
+  recipients: string[]
+  subject: string
+  size: number | null
+  type: string
+  policy: string
+  releaseStatus: string
+  expires: string | null
+  direction: string
+  messageId: string
+}
+
+export interface QuarantineFilter {
+  sender?: string
+  recipient?: string
+  type?: QuarantineType | ''
+  subject?: string
+  start?: string
+  end?: string
+  page?: number
+}
+
+export interface QuarantinePreview {
+  body: string
+  isHtml: boolean
+  from: string
+  to: string[]
+  cc: string[]
+  subject: string
+  received: string | null
+  attachments: string[]
+  headers: string | null
+}
+
+export type AllowBlockList = 'Sender' | 'Url' | 'FileHash' | 'Spoof'
+
+export interface AllowBlockItem {
+  id: string
+  value: string
+  action: 'Allow' | 'Block' | string
+  listType: AllowBlockList
+  expires: string | null
+  notes: string
+  modified: string | null
+}
+
+export interface NewAllowBlock {
+  listType: Exclude<AllowBlockList, 'Spoof'>
+  entries: string[]
+  action: 'Allow' | 'Block'
+  /** Days until the entry expires; empty means never for blocks and 45 days after last use for allows. */
+  days?: number | null
+  notes?: string
+}
+
+export type SecPolicyKind = 'spam' | 'phish' | 'outbound'
+
+export interface SecPolicy {
+  kind: SecPolicyKind
+  name: string
+  isDefault: boolean
+  /** Standard or Strict preset security policy, which can only be changed in the Defender portal. */
+  preset: boolean
+  builtIn: boolean
+  modified: string | null
+  scope: { rule: string; enabled: boolean; priority: number; users: string[]; groups: string[]; domains: string[] } | null
+  /** Policy settings as returned by Exchange, keyed by the Set-* parameter name. */
+  settings: Record<string, string | number | boolean | string[] | null>
+}
+
+export interface SecPolicies {
+  /** Defender for Office 365 is available, which unlocks impersonation protection settings. */
+  mdo: boolean
+  spam: SecPolicy[]
+  phish: SecPolicy[]
+  outbound: SecPolicy[]
+}
+
+export interface RestrictedSender {
+  sender: string
+  reason: string
+  created: string | null
+  changed: string | null
+}
+
+export interface TraceRow {
+  received: string | null
+  sender: string
+  recipient: string
+  subject: string
+  status: string
+  fromIp: string
+  toIp: string
+  size: number | null
+  messageId: string
+  traceId: string
+}
+
+export interface TraceFilter {
+  sender?: string
+  recipient?: string
+  subject?: string
+  status?: string
+  start: string
+  end: string
+}
+
+export interface TraceEvent {
+  date: string | null
+  event: string
+  action: string
+  detail: string
+}
+
+export interface AuditFilter {
+  start: string
+  end: string
+  users?: string[]
+  operations?: string[]
+  recordType?: string
+  freeText?: string
+}
+
+export interface AuditRecord {
+  id: string
+  date: string | null
+  user: string
+  operation: string
+  recordType: string
+  workload: string
+  clientIp: string
+  object: string
+  mailbox: string
+  result: string
+  data: string
+}
+
+export interface SecureMailboxResult {
+  rulesRemoved: string[]
+  failed: { rule: string; error: string }[]
+  forwardingRemoved: string | null
+  /** Reason when Microsoft restricted this account from sending, else null. */
+  restricted: string | null
+}
+
+export interface SignIn {
+  id: string
+  date: string
+  app: string
+  ip: string
+  location: string
+  client: string
+  device: string
+  ok: boolean
+  error: string
+  risk: string
+  ca: string
+  interactive: boolean
+}
+
+export interface RiskyUser {
+  id: string
+  displayName: string
+  upn: string
+  riskLevel: string
+  riskState: string
+  riskDetail: string
+  updated: string | null
+}
+
+export interface RiskDetection {
+  id: string
+  type: string
+  level: string
+  state: string
+  date: string | null
+  user: string
+  upn: string
+  userId: string
+  ip: string
+  location: string
+  activity: string
+}
+
+export interface ReportedMsg {
+  id: string
+  created: string | null
+  category: string
+  source: string
+  status: string
+  sender: string
+  subject: string
+  recipient: string
+  received: string | null
+  reportedBy: string
+  result: string
+  internetMessageId: string
+}
+
+/** What to look for when pulling a message out of mailboxes. */
+export interface RetractSpec {
+  sender?: string
+  subject?: string
+  start?: string
+  end?: string
+  /** Extra KQL, added with AND. */
+  query?: string
+  /** Mailboxes to search; empty means all mailboxes. */
+  mailboxes?: string[]
+}
+
+export type PurgeType = 'SoftDelete' | 'HardDelete'
+
+export interface RetractJob {
+  id: string
+  tenantId: string
+  searchName: string
+  spec: RetractSpec
+  query: string
+  phase: 'searching' | 'found' | 'purging' | 'done' | 'failed'
+  items: number
+  mailboxes: { location: string; items: number; size: number }[]
+  purgeType: PurgeType | null
+  round: number
+  rounds: number
+  error: string | null
+  started: string
+  finished: string | null
+}
+
+export interface AnalyzedEmail {
+  id: string
+  networkMessageId: string
+  received: string | null
+  sender: string
+  subject: string
+  recipient: string
+  direction: string
+  threats: string[]
+  location: string
+}
+
+export type DefenderAction = 'softDelete' | 'hardDelete' | 'moveToJunk' | 'moveToDeletedItems'

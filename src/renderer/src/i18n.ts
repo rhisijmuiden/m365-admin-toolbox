@@ -2,11 +2,13 @@ import type { Lang } from '@shared/types'
 import { exEn, exNl } from './i18n-exchange'
 import { tmEn, tmNl } from './i18n-teams'
 import { enEn, enNl } from './i18n-entra'
+import { seEn, seNl } from './i18n-security'
 
 const en = {
   ...exEn,
   ...tmEn,
   ...enEn,
+  ...seEn,
   appName: 'M365 Admin Toolbox',
   appSub: 'Multi-tenant admin',
   searchTenants: 'Search tenants',
@@ -231,6 +233,7 @@ const nl: Dict = {
   ...exNl,
   ...tmNl,
   ...enNl,
+  ...seNl,
   appName: 'M365 Admin Toolbox',
   appSub: 'Multi-tenant beheer',
   searchTenants: 'Tenants zoeken',

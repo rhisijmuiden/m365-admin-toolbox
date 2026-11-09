@@ -43,6 +43,19 @@ Multi-tenant Microsoft 365 admin desktop app for Windows, by RHIS.
 - **MFA methods**: registered methods per user (registration report, or per user without Entra ID P1), users without MFA or with phone only; remove methods, reset MFA and create a Temporary Access Pass.
 - **Guest users**: invite guests, resend invitations, block sign-in, and clean up guests who never accepted (30 days) or did not sign in for 90 days.
 
+### Security (phase 5)
+
+- **Quarantine**: the quarantine queue with filters on sender, recipient, subject, reason and date; preview a message safely (no scripts, no remote images) with its headers; release to all recipients with the option to report it to Microsoft as not junk and to allow the sender; delete; block the sender.
+- **Allow/Block list**: the Tenant Allow/Block List for senders and domains, URLs, file hashes and spoofed senders; block or allow with an expiry and notes, remove entries.
+- **Spam & phishing**: anti-spam, anti-phishing and outbound spam policies with their scope; edit the main settings (actions, bulk threshold, ZAP, sender and domain lists, spoof and, with Defender for Office 365, impersonation protection, recipient limits and automatic external forwarding) and turn custom policies on or off. Preset policies are read-only.
+- **Pull back mail**: find a message by sender or domain, subject, date and optional KQL in all or some mailboxes with a compliance search, see per mailbox how many items it found, then soft or hard delete. A purge removes at most 10 items per mailbox, so the app repeats it (up to 10 rounds). With Defender for Office 365 Plan 2 the Defender remediation API can be used instead.
+- **Message trace**: where a message went in the last 10 days, with the delivery events; block the sender or pull the message back from there.
+- **Blocked senders**: accounts Microsoft restricted from sending after outbound spam; secure the account, then release it.
+- **Reported messages**: messages users reported with the Report button in Outlook and Microsoft's verdict; block the sender or pull the message out of all mailboxes.
+- **Account compromised**: one run that blocks sign-in, revokes sessions, sets a new password, removes inbox rules that forward, delete or hide mail and mailbox forwarding, optionally removes MFA methods, and shows the latest sign-ins and whether the account is restricted from sending.
+- **Risky users**: Entra ID Protection risky users (confirm compromised, dismiss) and risk detections (needs Entra ID P2).
+- **Audit log**: search the unified audit log by user, operation, category and text with presets for common questions (inbox rules, deleted mail, mail read, permissions, roles, sign-ins), see the raw record, export to CSV, and turn the audit log on when it is off.
+
 ## How it works
 
 - Electron + React + TypeScript (electron-vite).
@@ -53,6 +66,9 @@ Multi-tenant Microsoft 365 admin desktop app for Windows, by RHIS.
 - Teams, channels, members and guests go through Graph. The Teams endpoints need a few extra delegated scopes (`Team.Create`, `TeamMember.ReadWrite.All`, `TeamSettings.ReadWrite.All`, `Channel.Create`, `Channel.Delete.All`, `ChannelMember.ReadWrite.All`), which the Teams screen asks consent for once per tenant.
 - Teams policies, external and guest access and phone numbers run through the MicrosoftTeams PowerShell module (v5 or newer), installed for the current Windows user on first use, in its own helper process per tenant like Exchange. It connects with `Connect-MicrosoftTeams -AccessTokens` using tokens for the Microsoft Teams PowerShell app (`12128f48-ec9e-42f0-b203-ea49fb6af367`); the first of these screens per tenant asks for that sign-in once. The role needed is Teams Administrator.
 - Entra ID runs entirely through Graph. Its write scopes (`Application.ReadWrite.All`, `AppRoleAssignment.ReadWrite.All`, `DelegatedPermissionGrant.ReadWrite.All`, `Policy.Read.All`, `Policy.ReadWrite.ConditionalAccess`, `RoleManagement.ReadWrite.Directory`, the PIM schedule and policy scopes, `User.Invite.All`) are asked for once per tenant from the Entra screens. Roles needed: Application Administrator, Conditional Access Administrator, Privileged Role Administrator and Authentication Administrator. Conditional Access needs Entra ID P1, PIM needs Entra ID P2. Approving directory role requests uses the Graph beta endpoint, because v1.0 has no role approval API yet.
+- Quarantine, the Allow/Block list, the protection policies, blocked senders, message trace and the audit log run in the Exchange Online helper. Roles needed: Security Administrator (or Exchange Administrator for most of it) and, for the audit log, View-Only Audit Logs.
+- Pulling back mail runs a compliance search in a separate Security & Compliance PowerShell helper (`Connect-IPPSSession -AccessToken`, same module and app as Exchange). It needs the eDiscovery Manager role with Search And Purge in Microsoft Purview. Security & Compliance PowerShell has limited GDAP support; if it does not connect for a GDAP tenant, add the tenant with its own admin account. The Defender remediation option uses Graph beta (`SecurityAnalyzedMessage.ReadWrite.All`) and needs Defender for Office 365 Plan 2.
+- Risky users and detections (`IdentityRiskyUser.ReadWrite.All`, `IdentityRiskEvent.Read.All`) and reported messages (`ThreatSubmission.Read.All`, Graph beta) each ask consent once per tenant. Sign-ins on the "Account compromised" screen use the existing `AuditLog.Read.All` and need Entra ID P1.
 - Mailbox sizes come from the Microsoft 365 usage report (Graph, `Reports.Read.All`, one or two days behind) when the tenant allows it, and otherwise live from Exchange.
 - Temporary Access Pass only works when that method is enabled in the tenant's authentication methods policy.
 
