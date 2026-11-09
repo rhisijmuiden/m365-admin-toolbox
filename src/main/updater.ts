@@ -52,5 +52,6 @@ export async function downloadUpdate() {
 }
 
 export function installUpdate() {
-  autoUpdater.quitAndInstall(false, true)
+  // Silent so the assisted NSIS wizard doesn't reappear on every update; the app restarts afterwards.
+  autoUpdater.quitAndInstall(true, true)
 }
