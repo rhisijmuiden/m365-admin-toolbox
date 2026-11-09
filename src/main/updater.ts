@@ -16,8 +16,8 @@ function emit(next: UpdateState) {
  * installs the latest stable build even when it is older than the test build.
  */
 export function applyChannel(channel: Channel) {
+  // Both channels read latest.yml; the test channel just also considers GitHub pre-releases.
   autoUpdater.allowPrerelease = channel === 'test'
-  autoUpdater.channel = channel === 'test' ? 'beta' : 'latest'
   autoUpdater.allowDowngrade = true
 }
 

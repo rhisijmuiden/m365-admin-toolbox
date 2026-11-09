@@ -18,7 +18,6 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   shortcutName: M365 Admin Toolbox
-generateUpdatesFilesForAllChannels: true
 publish:
   provider: github
   owner: rhisijmuiden
