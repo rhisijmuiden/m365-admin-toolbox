@@ -9,17 +9,34 @@ import { UsersView } from './views/Users'
 import { LicensesView } from './views/Licenses'
 import { GroupsView } from './views/Groups'
 import { PimView } from './views/Pim'
+import { MailboxesView } from './views/Mailboxes'
+import { DistListsView } from './views/DistLists'
+import { AddressesView } from './views/Addresses'
+import { InboxRulesView } from './views/InboxRules'
+import { MailFlowView } from './views/MailFlow'
 import logoDark from './assets/rhis-logo.svg'
 import logoLight from './assets/rhis-logo-wit.svg'
 
-type View = 'pim' | 'users' | 'licenses' | 'groups' | 'mailboxes' | 'shared' | 'aliases' | 'teamsList' | 'policies' | 'apps' | 'ca' | 'roles'
+type View =
+  | 'pim'
+  | 'users'
+  | 'licenses'
+  | 'groups'
+  | 'mailboxes'
+  | 'shared'
+  | 'rooms'
+  | 'distLists'
+  | 'aliases'
+  | 'inboxRules'
+  | 'mailflow'
+  | 'teamsList' | 'policies' | 'apps' | 'ca' | 'roles'
 
 const NAV: { id: 'access' | 'm365' | 'exchange' | 'teams' | 'entra'; bg: string; items: [View, number][] }[] = [
   { id: 'access', bg: 'linear-gradient(135deg,#ff8a6b,#e0503c)', items: [['pim', 0]] },
   { id: 'm365', bg: 'linear-gradient(135deg,#ea5a2b,#c2381f)', items: [['users', 0], ['licenses', 0], ['groups', 0]] },
-  { id: 'exchange', bg: 'linear-gradient(135deg,#2a8be0,#0a5aa6)', items: [['mailboxes', 2], ['shared', 2], ['aliases', 2]] },
+  { id: 'exchange', bg: 'linear-gradient(135deg,#2a8be0,#0a5aa6)', items: [['mailboxes', 0], ['shared', 0], ['rooms', 0], ['distLists', 0], ['aliases', 0], ['inboxRules', 0], ['mailflow', 0]] },
   { id: 'teams', bg: 'linear-gradient(135deg,#7377dd,#4b4fb3)', items: [['teamsList', 3], ['policies', 3]] },
-  { id: 'entra', bg: 'linear-gradient(135deg,#17a6a0,#0a6f75)', items: [['apps', 3], ['ca', 3], ['roles', 3]] }
+  { id: 'entra', bg: 'linear-gradient(135deg,#17a6a0,#0a6f75)', items: [['apps', 4], ['ca', 4], ['roles', 4]] }
 ]
 
 function useDark() {
@@ -195,6 +212,16 @@ export function App() {
             <UsersView key={tenant.tenantId + epoch} />
           ) : view === 'licenses' ? (
             <LicensesView key={tenant.tenantId + epoch} />
+          ) : view === 'mailboxes' || view === 'shared' || view === 'rooms' ? (
+            <MailboxesView key={tenant.tenantId + epoch + view} scope={view === 'mailboxes' ? 'all' : view === 'shared' ? 'shared' : 'resources'} />
+          ) : view === 'distLists' ? (
+            <DistListsView key={tenant.tenantId + epoch} />
+          ) : view === 'aliases' ? (
+            <AddressesView key={tenant.tenantId + epoch} />
+          ) : view === 'inboxRules' ? (
+            <InboxRulesView key={tenant.tenantId + epoch} />
+          ) : view === 'mailflow' ? (
+            <MailFlowView key={tenant.tenantId + epoch} />
           ) : (
             <GroupsView key={tenant.tenantId + epoch} />
           )}

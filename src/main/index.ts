@@ -1,7 +1,27 @@
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from 'electron'
 import { join } from 'path'
-import type { AppInfo, LicenseChange, NewGroup, NewUser, PimKind, PimRequest, Result, Settings, Tenant, TenantMode } from '@shared/types'
-import { forget, homeTenantOf, signInInteractive } from './auth'
+import type {
+  AppInfo,
+  AutoReply,
+  CalendarSettings,
+  DistKind,
+  LicenseChange,
+  MailRight,
+  NewDistGroup,
+  NewGroup,
+  NewMailbox,
+  NewUser,
+  PimKind,
+  PimRequest,
+  Recipient,
+  Result,
+  Settings,
+  Tenant,
+  TenantMode
+} from '@shared/types'
+import { consentScopes, exoSignIn, forget, homeTenantOf, signInInteractive } from './auth'
+import * as exo from './exchange'
+import { closeAll, closeSession, ensureModule, setExoWindow } from './exo'
 import * as graph from './graph'
 import * as pim from './pim'
 import { initPimWatch } from './pimWatch'
@@ -44,6 +64,7 @@ function createWindow() {
   else win.loadFile(join(__dirname, '../renderer/index.html'))
   initUpdater(win, s.channel)
   initPimWatch(win)
+  setExoWindow(win)
 }
 
 /** Wraps a handler so errors reach the renderer as a Result instead of a rejected invoke. */
@@ -121,6 +142,7 @@ function registerIpc() {
   handle('tenants:remove', async (id: string) => {
     const t = tenants.get(id)
     tenants.remove(id)
+    closeSession(id)
     if (t) await forget(t.homeAccountId)
     return tenants.list()
   })
@@ -144,11 +166,43 @@ function registerIpc() {
   handle('pim:extend', (id: string, r: PimRequest) => pim.extend(id, r))
   handle('pim:deactivate', (id: string, kind: PimKind, targetId: string) => pim.deactivate(id, kind, targetId))
   handle('pim:cancel', (id: string, kind: PimKind, requestId: string) => pim.cancel(id, kind, requestId))
+  handle('exo:signIn', (id: string) => exoSignIn(id))
+  handle('exo:consentReports', (id: string) => consentScopes(id, exo.REPORT_SCOPES))
+  handle('exo:mailboxes', (id: string) => exo.listMailboxes(id))
+  handle('exo:mailbox', (id: string, mbx: string) => exo.getMailbox(id, mbx))
+  handle('exo:sizes', (id: string, upns: string[], live?: boolean) => exo.mailboxSizes(id, upns, live))
+  handle('exo:setMailbox', (id: string, mbx: string, p: Parameters<typeof exo.setMailbox>[2]) => exo.setMailbox(id, mbx, p))
+  handle('exo:enableArchive', (id: string, mbx: string) => exo.enableArchive(id, mbx))
+  handle('exo:convertToShared', (id: string, mbx: string, userId: string, removeLic: boolean) => exo.convertToShared(id, mbx, userId, removeLic))
+  handle('exo:newMailbox', (id: string, m: NewMailbox) => exo.newMailbox(id, m))
+  handle('exo:permissions', (id: string, mbx: string) => exo.permissions(id, mbx))
+  handle('exo:permissionsForUser', (id: string, user: string) => exo.permissionsForUser(id, user))
+  handle('exo:grant', (id: string, mbx: string, user: string, right: MailRight, autoMap?: boolean) => exo.grant(id, mbx, user, right, autoMap))
+  handle('exo:revoke', (id: string, mbx: string, user: string, right: MailRight) => exo.revoke(id, mbx, user, right))
+  handle('exo:autoReply', (id: string, mbx: string) => exo.autoReply(id, mbx))
+  handle('exo:setAutoReply', (id: string, mbx: string, a: AutoReply) => exo.setAutoReply(id, mbx, a))
+  handle('exo:calendar', (id: string, mbx: string) => exo.calendar(id, mbx))
+  handle('exo:setCalendar', (id: string, mbx: string, c: CalendarSettings) => exo.setCalendar(id, mbx, c))
+  handle('exo:distGroups', (id: string) => exo.listDistGroups(id))
+  handle('exo:distGroup', (id: string, g: string, kind: DistKind) => exo.distGroupDetail(id, g, kind))
+  handle('exo:newDistGroup', (id: string, g: NewDistGroup) => exo.newDistGroup(id, g))
+  handle('exo:setDistGroup', (id: string, g: string, kind: DistKind, p: Parameters<typeof exo.setDistGroup>[3]) => exo.setDistGroup(id, g, kind, p))
+  handle('exo:addMember', (id: string, g: string, m: string) => exo.addMember(id, g, m))
+  handle('exo:removeMember', (id: string, g: string, m: string) => exo.removeMember(id, g, m))
+  handle('exo:removeDistGroup', (id: string, g: string, kind: DistKind) => exo.removeDistGroup(id, g, kind))
+  handle('exo:recipients', (id: string) => exo.recipients(id))
+  handle('exo:setAddresses', (id: string, r: Recipient, c: Parameters<typeof exo.setAddresses>[2]) => exo.setAddresses(id, r, c))
+  handle('exo:inboxRules', (id: string) => exo.inboxRules(id))
+  handle('exo:setInboxRule', (id: string, mbx: string, rule: string, action: 'disable' | 'enable' | 'remove') => exo.setInboxRule(id, mbx, rule, action))
+  handle('exo:mailFlow', (id: string) => exo.mailFlow(id))
   handle('update:state', () => updateState())
   handle('update:check', () => checkForUpdates())
   handle('update:download', () => downloadUpdate())
   handle('update:install', () => installUpdate())
 }
+
+// Development only: a separate profile, so a test run doesn't touch (or collide with) the installed app.
+if (!app.isPackaged && process.env.TOOLBOX_USER_DATA) app.setPath('userData', process.env.TOOLBOX_USER_DATA)
 
 if (!app.requestSingleInstanceLock()) app.quit()
 else {
@@ -162,6 +216,9 @@ else {
   app.whenReady().then(() => {
     registerIpc()
     createWindow()
+    // Check or install the Exchange module in the background so the first Exchange screen opens faster.
+    ensureModule().catch(() => undefined)
   })
   app.on('window-all-closed', () => app.quit())
+  app.on('will-quit', () => closeAll())
 }
