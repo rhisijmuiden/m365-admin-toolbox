@@ -16,6 +16,8 @@ export interface Ctx {
   reauth(): Promise<void>
   /** Opens the PIM screen of the current tenant, e.g. after a 403. */
   goPim(): void
+  /** Opens another screen, optionally after switching to another tenant (used by cross-tenant overviews). */
+  go(view: string, tenantId?: string): void
 }
 
 export const AppCtx = createContext<Ctx>(null as unknown as Ctx)

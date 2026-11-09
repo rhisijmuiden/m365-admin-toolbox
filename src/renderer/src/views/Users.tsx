@@ -560,7 +560,7 @@ function ResetModal({ user, onClose, onDone }: { user: User; onClose(): void; on
   )
 }
 
-function TapModal({ user, onClose, onDone }: { user: User; onClose(): void; onDone(pass: string, minutes: number): void }) {
+export function TapModal({ user, onClose, onDone }: { user: User; onClose(): void; onDone(pass: string, minutes: number): void }) {
   const { t, tenant } = useApp()
   const [minutes, setMinutes] = useState(60)
   const [once, setOnce] = useState(true)

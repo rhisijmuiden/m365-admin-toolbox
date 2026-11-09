@@ -470,3 +470,331 @@ export interface TeamsPhone {
   calling: string[]
   routing: string[]
 }
+
+// ---------- Entra ID (phase 4) ----------
+
+export type CredKind = 'secret' | 'cert'
+
+export interface AppCredential {
+  keyId: string
+  kind: CredKind
+  displayName: string | null
+  /** Last characters of a secret (hint) or the certificate thumbprint. */
+  hint: string | null
+  start: string | null
+  end: string | null
+}
+
+export type SignInAudience = 'AzureADMyOrg' | 'AzureADMultipleOrgs' | 'AzureADandPersonalMicrosoftAccount' | 'PersonalMicrosoftAccount'
+
+export interface ResourceAccess {
+  resourceAppId: string
+  access: { id: string; type: 'Scope' | 'Role' }[]
+}
+
+export interface AppRole {
+  id: string
+  displayName: string
+  description: string
+  value: string | null
+  allowedMemberTypes: ('User' | 'Application')[]
+  isEnabled: boolean
+}
+
+export interface AppReg {
+  /** Object id of the application. */
+  id: string
+  appId: string
+  displayName: string
+  audience: SignInAudience | string
+  created: string | null
+  web: string[]
+  spa: string[]
+  publicClient: string[]
+  permissions: ResourceAccess[]
+  appRoles: AppRole[]
+  credentials: AppCredential[]
+}
+
+export interface PermissionDef {
+  id: string
+  type: 'Scope' | 'Role'
+  value: string
+  name: string
+  description: string
+  /** Delegated scopes that need admin consent, and every application permission. */
+  admin: boolean
+}
+
+export interface ApiResource {
+  appId: string
+  spId: string
+  displayName: string
+  permissions: PermissionDef[]
+}
+
+export interface AppPermissionState {
+  /** Service principal of the app in this tenant, null when it has none yet. */
+  spId: string | null
+  resources: ApiResource[]
+  /** Granted for the whole tenant: delegated scope values and app role ids per resource appId. */
+  granted: Record<string, { scopes: string[]; roles: string[] }>
+}
+
+export interface NewAppReg {
+  displayName: string
+  audience: SignInAudience
+  platform: 'none' | 'web' | 'spa' | 'publicClient'
+  redirectUris: string[]
+  permissions: ResourceAccess[]
+  adminConsent: boolean
+}
+
+export interface DirectoryRef {
+  id: string
+  displayName: string
+  /** UPN for users, mail for groups, appId for service principals. */
+  detail: string | null
+  type: 'user' | 'group' | 'servicePrincipal' | string
+}
+
+export interface CertFile {
+  key: string
+  thumbprint: string
+  subject: string
+  start: string
+  end: string
+  fileName: string
+}
+
+export interface ExpiringCred extends AppCredential {
+  /** Object id of the application or service principal. */
+  objectId: string
+  appId: string
+  appName: string
+  source: 'app' | 'sp'
+}
+
+export interface EnterpriseApp {
+  id: string
+  appId: string
+  displayName: string
+  enabled: boolean
+  assignmentRequired: boolean
+  hidden: boolean
+  publisher: string | null
+  /** True for apps published by Microsoft itself. */
+  microsoft: boolean
+  /** True when the app registration lives in this tenant. */
+  ownTenant: boolean
+  type: string
+  appRoles: AppRole[]
+  homepage: string | null
+}
+
+export interface AppAssignment {
+  id: string
+  principalId: string
+  principalName: string
+  principalType: string
+  appRoleId: string
+  created: string | null
+}
+
+export interface GrantedPermission {
+  /** oauth2PermissionGrant id or appRoleAssignment id, used to revoke. */
+  grantId: string
+  kind: 'delegated' | 'application'
+  resource: string
+  value: string
+  /** Delegated: AllPrincipals (admin consent) or a single user's consent. */
+  consent: 'admin' | 'user' | null
+  risky: boolean
+}
+
+export interface AppGrants {
+  spId: string
+  appId: string
+  displayName: string
+  publisher: string | null
+  microsoft: boolean
+  enabled: boolean
+  /** Users who gave their own consent (delegated grants with consentType Principal). */
+  userConsents: number
+  permissions: GrantedPermission[]
+}
+
+export type CaState = 'enabled' | 'disabled' | 'enabledForReportingButNotEnforced'
+
+export interface CaPolicy {
+  id: string
+  displayName: string
+  state: CaState
+  created: string | null
+  modified: string | null
+  /** The full policy as Graph returns it, for the details view. */
+  raw: Record<string, unknown>
+}
+
+export interface CaDraft {
+  displayName: string
+  state: CaState
+  users: 'all' | 'guests' | 'admins' | 'selected'
+  include: string[]
+  exclude: string[]
+  apps: 'all' | 'office365' | 'azureManagement'
+  clientApps: 'all' | 'legacy'
+  locations: 'any' | 'excludeTrusted' | 'selected'
+  locationIds: string[]
+  grant: 'block' | 'mfa' | 'compliant' | 'mfaOrCompliant'
+}
+
+export interface NamedLocation {
+  id: string
+  displayName: string
+  kind: 'ip' | 'country'
+  trusted: boolean
+  ranges: string[]
+  countries: string[]
+  includeUnknown: boolean
+  modified: string | null
+}
+
+export interface RoleDef {
+  id: string
+  templateId: string
+  displayName: string
+  description: string
+  builtIn: boolean
+  privileged: boolean
+}
+
+export interface RoleMember {
+  /** roleAssignment id (permanent), or the schedule instance id. */
+  id: string
+  roleId: string
+  principal: DirectoryRef
+  kind: 'permanent' | 'active' | 'eligible'
+  start: string | null
+  end: string | null
+}
+
+export interface RolesData {
+  roles: RoleDef[]
+  members: RoleMember[]
+  /** False when PIM schedules could not be read (no Entra ID P2). */
+  pim: boolean
+}
+
+export interface RoleAssign {
+  roleId: string
+  principalId: string
+  kind: 'permanent' | 'active' | 'eligible'
+  start?: string
+  end?: string | null
+  justification?: string
+}
+
+export interface GdapRelationship {
+  id: string
+  displayName: string
+  status: string
+  start: string | null
+  end: string | null
+  autoExtend: string | null
+  /** Role template ids in the relationship. */
+  roles: string[]
+  groups: { id: string; name: string; roles: string[] }[]
+}
+
+export interface GdapStatus {
+  /** False for tenants added with an own admin login. */
+  gdap: boolean
+  relationships: GdapRelationship[]
+  error?: string
+}
+
+export interface PimApproval {
+  approvalId: string
+  requestId: string
+  kind: 'role' | 'group'
+  targetId: string
+  targetName: string
+  principal: DirectoryRef
+  justification: string | null
+  created: string
+  accessId?: string
+  start: string | null
+  end: string | null
+}
+
+export interface PimRoleSettings {
+  policyId: string
+  maxHours: number
+  mfa: boolean
+  justification: boolean
+  ticket: boolean
+  approval: boolean
+  approvers: DirectoryRef[]
+}
+
+export interface PimGroupEntry {
+  id: string
+  principal: DirectoryRef
+  accessId: 'member' | 'owner'
+  kind: 'eligible' | 'active' | 'permanent'
+  start: string | null
+  end: string | null
+}
+
+export interface PimAudit {
+  id: string
+  date: string
+  activity: string
+  by: string | null
+  target: string | null
+  result: string
+  reason: string | null
+}
+
+export interface AuthMethod {
+  id: string
+  type: string
+  label: string | null
+  created: string | null
+}
+
+export interface UserMfa {
+  userId: string
+  displayName: string
+  upn: string
+  methods: string[]
+  mfaCapable: boolean
+  defaultMethod: string | null
+  isAdmin: boolean
+}
+
+export interface MfaReport {
+  source: 'report' | 'methods'
+  users: UserMfa[]
+}
+
+export interface EntraGuest {
+  id: string
+  displayName: string
+  mail: string | null
+  upn: string
+  state: string | null
+  stateChanged: string | null
+  created: string | null
+  lastSignIn: string | null
+  enabled: boolean
+  company: string | null
+}
+
+export interface Invite {
+  email: string
+  displayName: string
+  message?: string
+  send: boolean
+}

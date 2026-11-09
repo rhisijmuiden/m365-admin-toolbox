@@ -20,6 +20,16 @@ import { TeamPoliciesView } from './views/TeamPolicies'
 import { TeamAccessView } from './views/TeamAccess'
 import { TeamPhoneView } from './views/TeamPhone'
 import { TeamTemplatesView } from './views/TeamTemplates'
+import { AppRegsView } from './views/AppRegs'
+import { SecretsView } from './views/Secrets'
+import { EnterpriseAppsView } from './views/EnterpriseApps'
+import { RiskyAppsView } from './views/RiskyApps'
+import { CaView } from './views/ConditionalAccess'
+import { NamedLocationsView } from './views/NamedLocations'
+import { RolesView } from './views/Roles'
+import { PimAdminView } from './views/PimAdmin'
+import { MfaView } from './views/Mfa'
+import { EntraGuestsView } from './views/EntraGuests'
 import logoDark from './assets/rhis-logo.svg'
 import logoLight from './assets/rhis-logo-wit.svg'
 
@@ -41,14 +51,23 @@ type View =
   | 'teamAccess'
   | 'teamPhone'
   | 'teamTemplates'
-  | 'apps' | 'ca' | 'roles'
+  | 'appRegs'
+  | 'secrets'
+  | 'apps'
+  | 'riskyApps'
+  | 'ca'
+  | 'locations'
+  | 'roles'
+  | 'pimAdmin'
+  | 'mfa'
+  | 'entraGuests'
 
 const NAV: { id: 'access' | 'm365' | 'exchange' | 'teams' | 'entra'; bg: string; items: [View, number][] }[] = [
   { id: 'access', bg: 'linear-gradient(135deg,#ff8a6b,#e0503c)', items: [['pim', 0]] },
   { id: 'm365', bg: 'linear-gradient(135deg,#ea5a2b,#c2381f)', items: [['users', 0], ['licenses', 0], ['groups', 0]] },
   { id: 'exchange', bg: 'linear-gradient(135deg,#2a8be0,#0a5aa6)', items: [['mailboxes', 0], ['shared', 0], ['rooms', 0], ['distLists', 0], ['aliases', 0], ['inboxRules', 0], ['mailflow', 0]] },
   { id: 'teams', bg: 'linear-gradient(135deg,#7377dd,#4b4fb3)', items: [['teamsList', 0], ['teamGuests', 0], ['policies', 0], ['teamAccess', 0], ['teamPhone', 0], ['teamTemplates', 0]] },
-  { id: 'entra', bg: 'linear-gradient(135deg,#17a6a0,#0a6f75)', items: [['apps', 4], ['ca', 4], ['roles', 4]] }
+  { id: 'entra', bg: 'linear-gradient(135deg,#17a6a0,#0a6f75)', items: [['appRegs', 0], ['secrets', 0], ['apps', 0], ['riskyApps', 0], ['ca', 0], ['locations', 0], ['roles', 0], ['pimAdmin', 0], ['mfa', 0], ['entraGuests', 0]] }
 ]
 
 function useDark() {
@@ -134,7 +153,11 @@ export function App() {
   if (!settings) return null
 
   const goPim = () => setView('pim')
-  const ctx: Ctx = { t, lang, settings, tenant, tenants, toast, setSettings, markSynced, reauth, goPim }
+  const go = (v: string, tenantId?: string) => {
+    if (tenantId && tenantId !== curId) selectTenant(tenantId)
+    setView(v as View)
+  }
+  const ctx: Ctx = { t, lang, settings, tenant, tenants, toast, setSettings, markSynced, reauth, goPim, go }
   const group = NAV.find((g) => g.items.some(([k]) => k === view))!
   const phase = group.items.find(([k]) => k === view)![1]
   const ago = syncedAt ? new Intl.RelativeTimeFormat(lang, { numeric: 'auto' }).format(-Math.floor((Date.now() - syncedAt.getTime()) / 60000), 'minute') : null
@@ -244,6 +267,26 @@ export function App() {
             <TeamAccessView key={tenant.tenantId + epoch} />
           ) : view === 'teamPhone' ? (
             <TeamPhoneView key={tenant.tenantId + epoch} />
+          ) : view === 'appRegs' ? (
+            <AppRegsView key={tenant.tenantId + epoch} />
+          ) : view === 'secrets' ? (
+            <SecretsView key={epoch} />
+          ) : view === 'apps' ? (
+            <EnterpriseAppsView key={tenant.tenantId + epoch} />
+          ) : view === 'riskyApps' ? (
+            <RiskyAppsView key={tenant.tenantId + epoch} />
+          ) : view === 'ca' ? (
+            <CaView key={tenant.tenantId + epoch} />
+          ) : view === 'locations' ? (
+            <NamedLocationsView key={tenant.tenantId + epoch} />
+          ) : view === 'roles' ? (
+            <RolesView key={tenant.tenantId + epoch} />
+          ) : view === 'pimAdmin' ? (
+            <PimAdminView key={tenant.tenantId + epoch} />
+          ) : view === 'mfa' ? (
+            <MfaView key={tenant.tenantId + epoch} />
+          ) : view === 'entraGuests' ? (
+            <EntraGuestsView key={tenant.tenantId + epoch} />
           ) : view === 'teamTemplates' ? (
             <TeamTemplatesView />
           ) : (

@@ -48,7 +48,37 @@ import type {
   TeamsPhone,
   TeamsPolicies,
   TeamTemplate,
-  TemplateChannel
+  TemplateChannel,
+  ApiResource,
+  AppAssignment,
+  AppCredential,
+  AppGrants,
+  AppPermissionState,
+  AppReg,
+  AppRole,
+  AuthMethod,
+  CaDraft,
+  CaPolicy,
+  CaState,
+  CertFile,
+  DirectoryRef,
+  EnterpriseApp,
+  EntraGuest,
+  ExpiringCred,
+  GdapStatus,
+  GrantedPermission,
+  Invite,
+  MfaReport,
+  NamedLocation,
+  NewAppReg,
+  PimApproval,
+  PimAudit,
+  PimGroupEntry,
+  PimRoleSettings,
+  ResourceAccess,
+  RoleAssign,
+  RoleMember,
+  RolesData
 } from '../shared/types'
 
 type R<T> = Promise<Result<T>>
@@ -80,6 +110,7 @@ export interface Api {
   onNav(cb: (n: { tenantId: string; view: string }) => void): () => void
   exo: ExoApi
   teams: TeamsApi
+  entra: EntraApi
   updateState(): R<UpdateState>
   checkUpdate(): R<UpdateState>
   downloadUpdate(): R<void>
@@ -168,6 +199,64 @@ export interface TeamsApi {
   unassignNumber(tenantId: string, user: string, number: string, type: NumberType): R<CsUser>
   enterpriseVoice(tenantId: string, user: string, enabled: boolean): R<CsUser>
   onStatus(cb: (s: { tenantId: string; phase: ExoPhase }) => void): () => void
+}
+
+type OwnerKind = 'applications' | 'servicePrincipals'
+
+export interface EntraApi {
+  consent(tenantId: string): R<void>
+  apps(tenantId: string): R<AppReg[]>
+  app(tenantId: string, id: string): R<AppReg>
+  createApp(tenantId: string, n: NewAppReg): R<{ app: AppReg; consentError?: string }>
+  updateApp(tenantId: string, id: string, p: { displayName?: string; web?: string[]; spa?: string[]; publicClient?: string[]; permissions?: ResourceAccess[] }): R<AppReg>
+  deleteApp(tenantId: string, id: string): R<void>
+  setAppRoles(tenantId: string, id: string, roles: AppRole[]): R<AppReg>
+  addSecret(tenantId: string, kind: 'app' | 'sp', objectId: string, displayName: string, months: number): R<{ secret: string; keyId: string; end: string }>
+  removeCredential(tenantId: string, kind: 'app' | 'sp', objectId: string, c: Pick<AppCredential, 'keyId' | 'kind'>): R<void>
+  pickCert(): R<CertFile | null>
+  addCert(tenantId: string, appObjectId: string, cert: CertFile, displayName: string): R<AppReg>
+  resource(tenantId: string, appId: string): R<ApiResource>
+  permissions(tenantId: string, appObjectId: string): R<AppPermissionState>
+  grantConsent(tenantId: string, appObjectId: string): R<AppPermissionState>
+  removePermission(tenantId: string, appObjectId: string, resourceAppId: string, permId: string): R<AppPermissionState>
+  owners(tenantId: string, kind: OwnerKind, id: string): R<DirectoryRef[]>
+  addOwner(tenantId: string, kind: OwnerKind, id: string, userId: string): R<DirectoryRef[]>
+  removeOwner(tenantId: string, kind: OwnerKind, id: string, userId: string): R<DirectoryRef[]>
+  credentials(tenantId: string): R<ExpiringCred[]>
+  enterpriseApps(tenantId: string): R<EnterpriseApp[]>
+  updateEnterpriseApp(tenantId: string, id: string, p: { enabled?: boolean; assignmentRequired?: boolean; hidden?: boolean }): R<EnterpriseApp>
+  assignments(tenantId: string, spId: string): R<AppAssignment[]>
+  assign(tenantId: string, spId: string, principalId: string, appRoleId: string): R<AppAssignment[]>
+  unassign(tenantId: string, spId: string, assignmentId: string): R<AppAssignment[]>
+  grants(tenantId: string): R<AppGrants[]>
+  revokeGrant(tenantId: string, spId: string, p: Pick<GrantedPermission, 'grantId' | 'kind' | 'value'>): R<void>
+  caPolicies(tenantId: string): R<CaPolicy[]>
+  createCa(tenantId: string, d: CaDraft): R<CaPolicy[]>
+  setCaState(tenantId: string, id: string, state: CaState): R<CaPolicy[]>
+  deleteCa(tenantId: string, id: string): R<CaPolicy[]>
+  resolve(tenantId: string, ids: string[]): R<Record<string, string>>
+  locations(tenantId: string): R<NamedLocation[]>
+  saveLocation(tenantId: string, l: Omit<NamedLocation, 'modified' | 'id'> & { id?: string }): R<NamedLocation[]>
+  deleteLocation(tenantId: string, id: string): R<NamedLocation[]>
+  roles(tenantId: string): R<RolesData>
+  assignRole(tenantId: string, a: RoleAssign): R<RolesData>
+  removeRole(tenantId: string, m: Pick<RoleMember, 'id' | 'kind' | 'roleId'> & { principalId: string }): R<RolesData>
+  gdap(tenantId: string): R<GdapStatus>
+  approvals(tenantId: string): R<PimApproval[]>
+  review(tenantId: string, a: Pick<PimApproval, 'approvalId' | 'kind'>, approve: boolean, justification: string): R<void>
+  roleSettings(tenantId: string, roleId: string): R<PimRoleSettings>
+  setRoleSettings(tenantId: string, roleId: string, s: Omit<PimRoleSettings, 'policyId'>): R<PimRoleSettings>
+  pimGroup(tenantId: string, groupId: string): R<PimGroupEntry[]>
+  pimGroupAssign(tenantId: string, groupId: string, a: { principalId: string; accessId: 'member' | 'owner'; kind: 'eligible' | 'active'; start?: string; end?: string | null; justification?: string }): R<PimGroupEntry[]>
+  pimGroupRemove(tenantId: string, groupId: string, e: Pick<PimGroupEntry, 'accessId' | 'kind'> & { principalId: string }): R<PimGroupEntry[]>
+  pimAudit(tenantId: string, days: number): R<PimAudit[]>
+  mfa(tenantId: string): R<MfaReport>
+  methods(tenantId: string, userId: string): R<AuthMethod[]>
+  deleteMethod(tenantId: string, userId: string, m: Pick<AuthMethod, 'id' | 'type'>): R<void>
+  resetMfa(tenantId: string, userId: string, revoke: boolean): R<{ failed: { method: string; error: string }[]; methods: AuthMethod[] }>
+  guests(tenantId: string): R<EntraGuest[]>
+  invite(tenantId: string, i: Invite): R<{ userId: string; redeemUrl: string }>
+  deleteGuests(tenantId: string, ids: string[]): R<{ id: string; error: string }[]>
 }
 
 declare global {
