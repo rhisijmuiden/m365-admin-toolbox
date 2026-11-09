@@ -1,0 +1,25 @@
+appId: nl.rhis.m365toolbox
+productName: M365 Admin Toolbox
+copyright: Copyright © RHIS
+directories:
+  output: dist
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+asarUnpack: []
+win:
+  target: nsis
+  icon: build/icon.png
+  artifactName: M365-Admin-Toolbox-Setup-${version}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: M365 Admin Toolbox
+publish:
+  provider: github
+  owner: rhisijmuiden
+  repo: m365-admin-toolbox
+  releaseType: release
